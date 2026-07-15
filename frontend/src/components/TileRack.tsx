@@ -4,16 +4,10 @@ import React from "react";
 import { useGameStore } from "@/store/gameStore";
 
 const TILE_BG: Record<string, string> = {
-  a: "bg-amber-100",
-  i: "bg-amber-100",
-  e: "bg-amber-100",
-  o: "bg-amber-100",
-  u: "bg-amber-100",
-  ị: "bg-amber-200",
-  ẹ: "bg-amber-200",
-  ọ: "bg-amber-200",
-  ụ: "bg-amber-200",
-  ḅ: "bg-amber-200",
+  a: "bg-amber-100", i: "bg-amber-100", e: "bg-amber-100",
+  o: "bg-amber-100", u: "bg-amber-100",
+  ị: "bg-amber-200", ẹ: "bg-amber-200", ọ: "bg-amber-200",
+  ụ: "bg-amber-200", ḅ: "bg-amber-200",
   " ": "bg-gray-200 border-dashed",
 };
 
@@ -23,10 +17,7 @@ const TILE_VALUE: Record<string, number> = {
   n: 1, m: 1, r: 1,
   g: 2, s: 2, p: 2, b: 2, h: 2, k: 2,
   ụ: 3, d: 3, t: 3, w: 3, y: 3, ḅ: 3,
-  l: 4, f: 4,
-  j: 6, z: 6,
-  v: 8,
-  " ": 0,
+  l: 4, f: 4, j: 6, z: 6, v: 8, " ": 0,
 };
 
 export function TileRack() {
@@ -38,20 +29,26 @@ export function TileRack() {
   const passTurn = useGameStore((s) => s.passTurn);
   const gameStarted = useGameStore((s) => s.gameStarted);
   const pendingPlacements = useGameStore((s) => s.pendingPlacements);
-  const myPlayer = useGameStore((s) =>
-    s.players.find((p) => p.id === s.playerId)
-  );
+  const yourTurn = useGameStore((s) => s.yourTurn);
+  const myPlayer = useGameStore((s) => s.players.find((p) => p.id === s.playerId));
   const tilesRemaining = useGameStore((s) => s.tilesRemaining);
 
   if (!gameStarted) return null;
 
-  const canSubmit = pendingPlacements.length > 0;
-  const canClear = pendingPlacements.length > 0;
+  const canSubmit = pendingPlacements.length > 0 && yourTurn;
+  const canClear = pendingPlacements.length > 0 && yourTurn;
 
   return (
     <div className="flex flex-col items-center gap-3">
+      {/* Your Turn banner */}
+      {yourTurn && (
+        <div className="bg-amber-500 text-white px-6 py-1.5 rounded-full text-sm font-bold animate-pulse shadow-lg">
+          ✦ Your Turn ✦
+        </div>
+      )}
+
       {/* Pending tile count */}
-      {pendingPlacements.length > 0 && (
+      {pendingPlacements.length > 0 && yourTurn && (
         <div className="text-sm text-amber-700 font-medium">
           {pendingPlacements.length} tile{pendingPlacements.length > 1 ? "s" : ""} placed — click Submit to play
         </div>
@@ -67,17 +64,19 @@ export function TileRack() {
           return (
             <button
               key={i}
-              draggable
+              draggable={yourTurn}
               onDragStart={(e) => {
+                if (!yourTurn) { e.preventDefault(); return; }
                 e.dataTransfer.setData("text/plain", String(i));
                 e.dataTransfer.effectAllowed = "move";
               }}
-              onClick={() => selectTile(isSelected ? null : i)}
+              onClick={() => { if (yourTurn) selectTile(isSelected ? null : i); }}
               className={`
                 w-12 h-14 relative flex flex-col items-center justify-center rounded-md shadow-md
                 ${bg}
                 ${isSelected ? "ring-3 ring-amber-500 -translate-y-2" : ""}
-                transition-all duration-150 hover:-translate-y-1 cursor-pointer
+                ${!yourTurn ? "opacity-60 cursor-default" : "hover:-translate-y-1 cursor-pointer"}
+                transition-all duration-150
               `}
             >
               <span className={`text-xl font-bold leading-none ${isBlank ? "text-gray-400 italic" : "text-stone-800"}`}>
@@ -117,8 +116,9 @@ export function TileRack() {
         </button>
         <button
           onClick={passTurn}
+          disabled={!yourTurn}
           className="px-4 py-2 rounded-lg bg-stone-200 text-stone-700 font-medium
-                     hover:bg-stone-300 transition-colors"
+                     hover:bg-stone-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Pass
         </button>

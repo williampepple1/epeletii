@@ -27,6 +27,7 @@ interface GameState {
   gameOver: boolean;
   winner: string | null;
   gameOverReason: string;
+  yourTurn: boolean; // set when server sends YourTurn, cleared on BoardUpdate
 
   // Selection (for placing tiles)
   selectedTile: number | null; // index in myTiles
@@ -77,6 +78,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   gameOver: false,
   winner: null,
   gameOverReason: "",
+  yourTurn: false,
   selectedTile: null,
   pendingPlacements: [],
   error: null,
@@ -151,19 +153,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   dropOnBoard: (row, col, tileIndex) => {
-    const { myTiles, pendingPlacements, board } = get();
-    if (tileIndex < 0 || tileIndex >= myTiles.length || !board) return;
-    if (board[row][col].tile) return;
-    if (pendingPlacements.some((p) => p.row === row && p.col === col)) return;
-    const letter = myTiles[tileIndex];
-    const newPending = [...pendingPlacements, { row, col, letter }];
-    const newTiles = [...myTiles];
-    newTiles.splice(tileIndex, 1);
-    set({
-      pendingPlacements: newPending,
-      myTiles: newTiles,
-      selectedTile: null,
-    });
+    set({ selectedTile: tileIndex });
+    get().placeOnBoard(row, col);
   },
 
   sendChat: (message) => {
@@ -209,6 +200,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             currentTurn: msg.current_turn,
             error: null,
             drawResult: null,
+            yourTurn: false,
           });
         }
       });
@@ -229,6 +221,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             })),
             currentTurn: msg.current_turn,
             tilesRemaining: msg.tiles_remaining,
+            yourTurn: false, // not our turn anymore after update
+            lastWords: [], // clear word notification on new state
+            lastScore: 0,
           });
         }
       });
@@ -243,7 +238,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       });
 
       gameSocket.on("YourTurn", () => {
-        // Visual indicator could be added here
+        set({ yourTurn: true });
       });
 
       gameSocket.on("DrawResult", (msg) => {

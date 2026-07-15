@@ -37,6 +37,7 @@ export function GameBoard() {
   }
 
   const hasSelectedTile = selectedTile !== null && selectedTile < myTiles.length;
+  const yourTurn = useGameStore((s) => s.yourTurn);
   const isPending = (r: number, c: number) =>
     pendingPlacements.some((p) => p.row === r && p.col === c);
   const pendingTile = (r: number, c: number) =>
@@ -55,7 +56,7 @@ export function GameBoard() {
             const occupied = sq.tile !== null;
             const pending = isPending(ri, ci);
             const pt = pendingTile(ri, ci);
-            const canPlace = !occupied && !pending && hasSelectedTile;
+            const canPlace = !occupied && !pending && hasSelectedTile && yourTurn;
 
             return (
               <div

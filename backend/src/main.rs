@@ -252,6 +252,14 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 if let (Some(ref pid), Some(ref rid)) = (&my_player_id, &my_room_id) {
                     let mut rooms = state.rooms.lock().await;
                     if let Some(room) = rooms.get_room_mut(rid) {
+                        // SECURITY: Only the current player can place tiles
+                        let current = room.game.current_player_index();
+                        if room.game.players[current].id != *pid {
+                            room.send_to(pid, &ServerMessage::Error {
+                                message: "It's not your turn".to_string(),
+                            });
+                            continue;
+                        }
                         let tuples: Vec<(usize, usize, String)> = placements
                             .iter()
                             .map(|p| (p.row, p.col, p.letter.clone()))
@@ -349,6 +357,13 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 if let (Some(ref pid), Some(ref rid)) = (&my_player_id, &my_room_id) {
                     let mut rooms = state.rooms.lock().await;
                     if let Some(room) = rooms.get_room_mut(rid) {
+                        let current = room.game.current_player_index();
+                        if room.game.players[current].id != *pid {
+                            room.send_to(pid, &ServerMessage::Error {
+                                message: "It's not your turn".to_string(),
+                            });
+                            continue;
+                        }
                         room.broadcast(&ServerMessage::PlayerPassed {
                             player_id: pid.clone(),
                         });
@@ -386,6 +401,13 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 if let (Some(ref pid), Some(ref rid)) = (&my_player_id, &my_room_id) {
                     let mut rooms = state.rooms.lock().await;
                     if let Some(room) = rooms.get_room_mut(rid) {
+                        let current = room.game.current_player_index();
+                        if room.game.players[current].id != *pid {
+                            room.send_to(pid, &ServerMessage::Error {
+                                message: "It's not your turn".to_string(),
+                            });
+                            continue;
+                        }
                         match room.game.exchange_tiles(&letters) {
                             Ok(()) => {
                                 let idx = room.game.current_player_index();

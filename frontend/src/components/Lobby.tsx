@@ -6,6 +6,7 @@ import { useGameStore } from "@/store/gameStore";
 export function Lobby() {
   const [nameInput, setNameInput] = useState("");
   const [joinId, setJoinId] = useState("");
+  const [isReady, setIsReady] = useState(false);
 
   const playerName = useGameStore((s) => s.playerName);
   const players = useGameStore((s) => s.players);
@@ -118,12 +119,15 @@ export function Lobby() {
           </div>
 
           <button
-            onClick={ready}
-            disabled={players.length < 2}
-            className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold
-                       hover:bg-green-700 disabled:opacity-40 transition-colors"
+            onClick={() => { ready(); setIsReady(true); }}
+            disabled={players.length < 2 || isReady}
+            className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+              isReady
+                ? "bg-green-100 text-green-700 ring-2 ring-green-400 cursor-default"
+                : "bg-green-600 text-white hover:bg-green-700 disabled:opacity-40"
+            }`}
           >
-            Ready
+            {isReady ? "✓ Ready!" : "Ready"}
           </button>
 
           {players.length < 2 && (
