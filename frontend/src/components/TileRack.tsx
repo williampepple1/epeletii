@@ -17,6 +17,18 @@ const TILE_BG: Record<string, string> = {
   " ": "bg-gray-200 border-dashed",
 };
 
+const TILE_VALUE: Record<string, number> = {
+  a: 1, i: 1, e: 1, o: 1, u: 1,
+  ị: 2, ẹ: 2, ọ: 2,
+  n: 1, m: 1, r: 1,
+  g: 2, s: 2, p: 2, b: 2, h: 2, k: 2,
+  ụ: 3, d: 3, t: 3, w: 3, y: 3, ḅ: 3,
+  l: 4, f: 4,
+  j: 6, z: 6,
+  v: 8,
+  " ": 0,
+};
+
 export function TileRack() {
   const myTiles = useGameStore((s) => s.myTiles);
   const selectedTile = useGameStore((s) => s.selectedTile);
@@ -55,16 +67,25 @@ export function TileRack() {
           return (
             <button
               key={i}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", String(i));
+                e.dataTransfer.effectAllowed = "move";
+              }}
               onClick={() => selectTile(isSelected ? null : i)}
               className={`
-                w-12 h-14 flex items-center justify-center text-xl font-bold rounded-md shadow-md
+                w-12 h-14 relative flex flex-col items-center justify-center rounded-md shadow-md
                 ${bg}
                 ${isSelected ? "ring-3 ring-amber-500 -translate-y-2" : ""}
-                ${isBlank ? "text-gray-400 italic" : "text-stone-800"}
                 transition-all duration-150 hover:-translate-y-1 cursor-pointer
               `}
             >
-              {isBlank ? "?" : tile}
+              <span className={`text-xl font-bold leading-none ${isBlank ? "text-gray-400 italic" : "text-stone-800"}`}>
+                {isBlank ? "?" : tile}
+              </span>
+              <span className="text-[9px] font-semibold text-stone-500 leading-none mt-0.5">
+                {TILE_VALUE[tile] !== undefined && TILE_VALUE[tile] > 0 ? TILE_VALUE[tile] : ""}
+              </span>
             </button>
           );
         })}

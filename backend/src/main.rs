@@ -302,9 +302,43 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                 }
                             }
                             Err(e) => {
+                                // Forfeit turn on invalid word (Scrabble rule)
+                                let idx = room.game.current_player_index();
+                                let restored_tiles: Vec<String> = room.game.players[idx]
+                                    .rack
+                                    .iter()
+                                    .map(|t| t.letter.clone())
+                                    .collect();
+                                room.send_to(pid, &ServerMessage::YourTiles { tiles: restored_tiles });
                                 room.send_to(pid, &ServerMessage::Error {
                                     message: format!("Invalid move: {}", e),
                                 });
+
+                                // Advance turn to next player
+                                room.game.next_turn();
+                                let scores: Vec<u32> =
+                                    room.game.players.iter().map(|p| p.score).collect();
+                                let board = room.board_squares();
+                                room.broadcast(&ServerMessage::BoardUpdate {
+                                    board,
+                                    scores,
+                                    current_turn: room.game.current_player_index() as u8,
+                                    tiles_remaining: room.game.tiles_remaining(),
+                                });
+                                let next = room.game.current_player_index();
+                                let ntiles: Vec<String> = room.game.players[next]
+                                    .rack
+                                    .iter()
+                                    .map(|t| t.letter.clone())
+                                    .collect();
+                                room.send_to(
+                                    &room.game.players[next].id,
+                                    &ServerMessage::YourTiles { tiles: ntiles },
+                                );
+                                room.send_to(
+                                    &room.game.players[next].id,
+                                    &ServerMessage::YourTurn,
+                                );
                             }
                         }
                     }

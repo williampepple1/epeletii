@@ -53,6 +53,7 @@ interface GameState {
   exchangeTiles: (letters: string[]) => void;
   selectTile: (index: number | null) => void;
   placeOnBoard: (row: number, col: number) => void;
+  dropOnBoard: (row: number, col: number, tileIndex: number) => void;
   clearPlacements: () => void;
   sendChat: (message: string) => void;
   connect: () => Promise<void>;
@@ -147,6 +148,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { pendingPlacements, myTiles } = get();
     const restored = [...myTiles, ...pendingPlacements.map((p) => p.letter)];
     set({ pendingPlacements: [], myTiles: restored, selectedTile: null });
+  },
+
+  dropOnBoard: (row, col, tileIndex) => {
+    const { myTiles, pendingPlacements, board } = get();
+    if (tileIndex < 0 || tileIndex >= myTiles.length || !board) return;
+    if (board[row][col].tile) return;
+    if (pendingPlacements.some((p) => p.row === row && p.col === col)) return;
+    const letter = myTiles[tileIndex];
+    const newPending = [...pendingPlacements, { row, col, letter }];
+    const newTiles = [...myTiles];
+    newTiles.splice(tileIndex, 1);
+    set({
+      pendingPlacements: newPending,
+      myTiles: newTiles,
+      selectedTile: null,
+    });
   },
 
   sendChat: (message) => {

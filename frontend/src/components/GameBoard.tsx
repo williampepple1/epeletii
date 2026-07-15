@@ -26,6 +26,7 @@ export function GameBoard() {
   const myTiles = useGameStore((s) => s.myTiles);
   const pendingPlacements = useGameStore((s) => s.pendingPlacements);
   const placeOnBoard = useGameStore((s) => s.placeOnBoard);
+  const dropOnBoard = useGameStore((s) => s.dropOnBoard);
 
   if (!board || !gameStarted) {
     return (
@@ -60,6 +61,15 @@ export function GameBoard() {
               <div
                 key={`${ri}-${ci}`}
                 onClick={() => canPlace && placeOnBoard(ri, ci)}
+                onDragOver={(e) => { if (canPlace) e.preventDefault(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const data = e.dataTransfer.getData("text/plain");
+                  if (data && canPlace) {
+                    const idx = parseInt(data, 10);
+                    if (!isNaN(idx)) dropOnBoard(ri, ci, idx);
+                  }
+                }}
                 className={`
                   w-10 h-10 flex items-center justify-center text-sm font-bold rounded-sm select-none
                   ${pending ? "bg-amber-400 text-stone-900 shadow-lg ring-2 ring-amber-600" : bgClass}
