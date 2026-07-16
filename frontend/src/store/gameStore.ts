@@ -106,6 +106,26 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setPlayerName: (name) => set({ playerName: name }),
 
+  signUp: (email, password, displayName) => {
+    set({ authLoading: true, authError: null });
+    gameSocket.send({ type: "SignUp", email, password, display_name: displayName });
+  },
+
+  signIn: (email, password) => {
+    set({ authLoading: true, authError: null });
+    gameSocket.send({ type: "SignIn", email, password });
+  },
+
+  logOut: () => {
+    set({
+      isLoggedIn: false,
+      authToken: null,
+      userEmail: null,
+      userDisplayName: null,
+      playerName: null,
+    });
+  },
+
   createRoom: () => {
     const { playerName } = get();
     if (!playerName) return;
@@ -184,6 +204,26 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ connected: true, error: null });
 
       // Register handlers
+      gameSocket.on("AuthSuccess", (msg) => {
+        if (msg.type === "AuthSuccess") {
+          set({
+            isLoggedIn: true,
+            authToken: msg.token,
+            userEmail: msg.email,
+            userDisplayName: msg.display_name,
+            playerName: msg.display_name,
+            authLoading: false,
+            authError: null,
+          });
+        }
+      });
+
+      gameSocket.on("AuthError", (msg) => {
+        if (msg.type === "AuthError") {
+          set({ authLoading: false, authError: msg.message });
+        }
+      });
+
       gameSocket.on("RoomCreated", (msg) => {
         if (msg.type === "RoomCreated") {
           set({ playerId: msg.player_id, roomId: msg.room_id, players: msg.players });

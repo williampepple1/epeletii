@@ -34,13 +34,14 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    dotenvy::dotenv().ok();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let addr = "0.0.0.0:9001";
     log::info!("Starting Epeletii server on {}", addr);
 
     let mongo_uri = std::env::var("MONGO_URI")
-        .unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+        .unwrap_or_else(|_| "mongodb://localhost:27017/epeletii".to_string());
     let auth = AuthService::new(&mongo_uri, "epeletii")
         .await
         .expect("Failed to connect to MongoDB");

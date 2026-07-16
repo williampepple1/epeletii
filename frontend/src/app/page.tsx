@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
+import { AuthForm } from "@/components/AuthForm";
 import { GameBoard } from "@/components/GameBoard";
 import { TileRack } from "@/components/TileRack";
 import { Lobby } from "@/components/Lobby";
@@ -17,6 +18,9 @@ export default function Home() {
   const lastScore = useGameStore((s) => s.lastScore);
   const playerId = useGameStore((s) => s.playerId);
   const drawResult = useGameStore((s) => s.drawResult);
+  const isLoggedIn = useGameStore((s) => s.isLoggedIn);
+  const userDisplayName = useGameStore((s) => s.userDisplayName);
+  const logOut = useGameStore((s) => s.logOut);
   const [showDraw, setShowDraw] = useState(false);
 
   useEffect(() => {
@@ -42,6 +46,9 @@ export default function Home() {
             <p className="text-stone-500 text-sm">Ibani Scrabble</p>
           </div>
           <div className="flex items-center gap-3">
+            {isLoggedIn && (
+              <span className="text-sm text-stone-500">{userDisplayName}</span>
+            )}
             <div className="flex items-center gap-1.5">
               <div
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -59,6 +66,15 @@ export default function Home() {
                            hover:bg-stone-300 transition-colors"
               >
                 Leave
+              </button>
+            )}
+            {isLoggedIn && (
+              <button
+                onClick={logOut}
+                className="text-xs px-3 py-1.5 rounded-lg bg-stone-200 text-stone-600
+                           hover:bg-stone-300 transition-colors"
+              >
+                Logout
               </button>
             )}
           </div>
@@ -89,7 +105,9 @@ export default function Home() {
         )}
 
         {/* Main content */}
-        {!gameStarted ? (
+        {!isLoggedIn ? (
+          <AuthForm />
+        ) : !gameStarted ? (
           <Lobby />
         ) : (
           <div className="flex gap-6 items-start">

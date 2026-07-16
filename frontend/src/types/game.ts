@@ -23,6 +23,8 @@ export interface BoardSquare {
 
 // Client -> Server messages
 export type ClientMessage =
+  | { type: "SignUp"; email: string; password: string; display_name: string }
+  | { type: "SignIn"; email: string; password: string }
   | { type: "CreateRoom"; player_name: string }
   | { type: "JoinRoom"; room_id: string; player_name: string }
   | { type: "Ready" }
@@ -47,6 +49,8 @@ export type ServerMessage =
   | { type: "TilesExchanged"; player_id: string; count: number }
   | { type: "GameOver"; winner: string | null; final_scores: number[]; reason: string }
   | { type: "Error"; message: string }
+  | { type: "AuthSuccess"; token: string; email: string; display_name: string }
+  | { type: "AuthError"; message: string }
   | { type: "Chat"; player_id: string; player_name: string; message: string }
   | { type: "RoomState"; room_id: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null };
 
