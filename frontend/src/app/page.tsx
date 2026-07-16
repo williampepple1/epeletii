@@ -110,8 +110,8 @@ export default function Home() {
         ) : !gameStarted ? (
           <Lobby />
         ) : (
-          <div className="flex gap-6 items-start">
-            <div className="flex-1 flex flex-col items-center gap-4">
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
+            <div className="flex-1 flex flex-col items-center gap-4 w-full">
               <GameBoard />
 
               {/* Recent words notification */}
@@ -124,7 +124,7 @@ export default function Home() {
               <TileRack />
             </div>
 
-            <div className="w-64 shrink-0">
+            <div className="w-full lg:w-64 shrink-0">
               <Scoreboard />
 
               {gameOver && (

@@ -12,7 +12,7 @@ class GameWebSocket {
   private maxRetries = 5;
   private retryCount = 0;
 
-  constructor(url: string = `ws://localhost:9001`) {
+  constructor(url: string = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:9001") {
     this.url = url;
   }
 

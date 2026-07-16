@@ -1,0 +1,6 @@
+# Create your own terraform.tfvars from this file
+# cp terraform.tfvars.example terraform.tfvars
+
+mongo_uri  = "mongodb://<your-mongo-host>:27017/epeletii"
+jwt_secret = "change-this-to-a-long-random-string"
+key_name   = "your-ec2-key-name" # optional, for SSH

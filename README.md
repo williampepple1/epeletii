@@ -50,12 +50,59 @@ epeletii/
 
 ## Running
 
+### Local development
+
 ```bash
-# Backend
+# Terminal 1 — Backend
 cd backend
+cp .env.example .env   # edit MONGO_URI and JWT_SECRET if needed
 cargo run
 
-# Frontend (separate terminal)
+# Terminal 2 — Frontend
 cd frontend
 npm run dev
 ```
+
+### Deploy to production
+
+**Prerequisites:**
+- Docker installed locally
+- Terraform installed
+- AWS CLI configured with the `personal` profile
+- A MongoDB Atlas cluster (free tier works) or any reachable MongoDB
+
+**Step 1 — Build and push the Docker image:**
+```bash
+# Build for x86 (t3a.nano)
+docker build -t williampepple1/epeletii:latest .
+
+# Push to Docker Hub (create account at hub.docker.com if needed)
+docker push williampepple1/epeletii:latest
+```
+
+**Step 2 — Deploy infrastructure:**
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your MongoDB URI and JWT secret
+
+terraform init
+terraform plan
+terraform apply
+```
+
+**Step 3 — Configure frontend:**
+```bash
+# Get the server IP from Terraform output
+terraform output ws_url
+# → ws://<ip>:9001
+
+# Set it in your frontend .env:
+echo "NEXT_PUBLIC_WS_URL=ws://<ip>:9001" > frontend/.env.local
+```
+
+**Step 4 — Deploy frontend to Vercel:**
+- Push the repo to GitHub
+- Import the `frontend/` directory as a Vercel project
+- Add `NEXT_PUBLIC_WS_URL` as an environment variable in Vercel dashboard
+

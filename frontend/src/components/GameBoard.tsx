@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useGameStore } from "@/store/gameStore";
+import { sounds } from "@/lib/sound";
 
 const PREMIUM_BG: Record<string, string> = {
   TW: "bg-red-600 text-white",
@@ -27,6 +28,7 @@ export function GameBoard() {
   const pendingPlacements = useGameStore((s) => s.pendingPlacements);
   const placeOnBoard = useGameStore((s) => s.placeOnBoard);
   const dropOnBoard = useGameStore((s) => s.dropOnBoard);
+  const removePendingPlacement = useGameStore((s) => s.removePendingPlacement);
 
   if (!board || !gameStarted) {
     return (
@@ -57,25 +59,30 @@ export function GameBoard() {
             const pending = isPending(ri, ci);
             const pt = pendingTile(ri, ci);
             const canPlace = !occupied && !pending && hasSelectedTile && yourTurn;
+            const canUndo = pending && yourTurn;
 
             return (
               <div
                 key={`${ri}-${ci}`}
-                onClick={() => canPlace && placeOnBoard(ri, ci)}
+                onClick={() => {
+                  if (canUndo) { removePendingPlacement(ri, ci); sounds.tileReturn(); return; }
+                  if (canPlace) { placeOnBoard(ri, ci); sounds.tilePlace(); }
+                }}
                 onDragOver={(e) => { if (canPlace) e.preventDefault(); }}
                 onDrop={(e) => {
                   e.preventDefault();
                   const data = e.dataTransfer.getData("text/plain");
                   if (data && canPlace) {
                     const idx = parseInt(data, 10);
-                    if (!isNaN(idx)) dropOnBoard(ri, ci, idx);
+                    if (!isNaN(idx)) { dropOnBoard(ri, ci, idx); sounds.tilePlace(); }
                   }
                 }}
                 className={`
-                  w-10 h-10 flex items-center justify-center text-sm font-bold rounded-sm select-none
+                  w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-sm font-bold rounded-sm select-none
                   ${pending ? "bg-amber-400 text-stone-900 shadow-lg ring-2 ring-amber-600" : bgClass}
                   ${occupied ? "text-stone-900 shadow-inner" : "text-[10px]"}
                   ${canPlace ? "hover:ring-2 hover:ring-amber-400 cursor-pointer" : ""}
+                  ${canUndo ? "hover:ring-2 hover:ring-red-400 cursor-pointer" : ""}
                   ${ri === 7 && ci === 7 && !occupied && !pending ? "ring-2 ring-amber-400" : ""}
                   transition-all duration-100
                 `}

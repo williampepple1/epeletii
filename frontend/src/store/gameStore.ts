@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { BoardSquare, PlayerInfo, ServerMessage } from "@/types/game";
 import { gameSocket } from "@/lib/websocket";
+import { sounds } from "@/lib/sound";
 
 interface GameState {
   // Connection
@@ -66,6 +67,8 @@ interface GameState {
   selectTile: (index: number | null) => void;
   placeOnBoard: (row: number, col: number) => void;
   dropOnBoard: (row: number, col: number, tileIndex: number) => void;
+  /// Remove a single pending tile back to rack
+  removePendingPlacement: (row: number, col: number) => void;
   clearPlacements: () => void;
   sendChat: (message: string) => void;
   connect: () => Promise<void>;
@@ -189,6 +192,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ pendingPlacements: [], myTiles: restored, selectedTile: null });
   },
 
+  removePendingPlacement: (row, col) => {
+    const { pendingPlacements, myTiles } = get();
+    const idx = pendingPlacements.findIndex((p) => p.row === row && p.col === col);
+    if (idx === -1) return;
+    const removed = pendingPlacements[idx];
+    const newPending = [...pendingPlacements];
+    newPending.splice(idx, 1);
+    set({
+      pendingPlacements: newPending,
+      myTiles: [...myTiles, removed.letter],
+    });
+  },
+
   dropOnBoard: (row, col, tileIndex) => {
     set({ selectedTile: tileIndex });
     get().placeOnBoard(row, col);
@@ -292,11 +308,13 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastWords: msg.words_formed,
             lastScore: msg.score,
           });
+          sounds.moveSubmit();
         }
       });
 
       gameSocket.on("YourTurn", () => {
         set({ yourTurn: true });
+        sounds.yourTurn();
       });
 
       gameSocket.on("DrawResult", (msg) => {
@@ -320,12 +338,14 @@ export const useGameStore = create<GameState>((set, get) => ({
               score: msg.final_scores[i] || p.score,
             })),
           });
+          sounds.gameOver();
         }
       });
 
       gameSocket.on("Error", (msg) => {
         if (msg.type === "Error") {
           set({ error: msg.message });
+          sounds.invalidMove();
           setTimeout(() => set({ error: null }), 5000);
         }
       });
