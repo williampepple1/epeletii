@@ -22,11 +22,11 @@ export function Lobby() {
   if (gameStarted) return null;
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6 space-y-4">
-      <h2 className="text-2xl font-bold text-center text-stone-800">
+    <div className="max-w-md mx-auto bg-[var(--surface)] rounded-xl shadow-lg p-6 space-y-4">
+      <h2 className="text-2xl font-bold text-center text-[var(--foreground)]">
         ⚕ Epeletii
       </h2>
-      <p className="text-center text-stone-500 text-sm">
+      <p className="text-center text-[var(--muted)] text-sm">
         Multiplayer Ibani Scrabble
       </p>
 

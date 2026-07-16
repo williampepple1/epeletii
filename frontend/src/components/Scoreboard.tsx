@@ -15,8 +15,8 @@ export function Scoreboard() {
   if (!gameStarted) return null;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 space-y-3">
-      <h3 className="text-lg font-bold text-stone-800">Scoreboard</h3>
+    <div className="bg-[var(--surface)] rounded-xl shadow-lg p-4 space-y-3">
+      <h3 className="text-lg font-bold text-[var(--foreground)]">Scoreboard</h3>
 
       {gameOver && (
         <div className="bg-amber-100 border border-amber-300 rounded-lg p-3 text-center">

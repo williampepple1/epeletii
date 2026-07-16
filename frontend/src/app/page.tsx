@@ -7,6 +7,10 @@ import { GameBoard } from "@/components/GameBoard";
 import { TileRack } from "@/components/TileRack";
 import { Lobby } from "@/components/Lobby";
 import { Scoreboard } from "@/components/Scoreboard";
+import { ScorePopup } from "@/components/ScorePopup";
+import { ChatPanel } from "@/components/ChatPanel";
+import { theme } from "@/lib/theme";
+import { setMuted, isMuted } from "@/lib/sound";
 
 export default function Home() {
   const connect = useGameStore((s) => s.connect);
@@ -14,14 +18,14 @@ export default function Home() {
   const gameStarted = useGameStore((s) => s.gameStarted);
   const gameOver = useGameStore((s) => s.gameOver);
   const reset = useGameStore((s) => s.reset);
-  const lastWords = useGameStore((s) => s.lastWords);
-  const lastScore = useGameStore((s) => s.lastScore);
   const playerId = useGameStore((s) => s.playerId);
   const drawResult = useGameStore((s) => s.drawResult);
   const isLoggedIn = useGameStore((s) => s.isLoggedIn);
   const userDisplayName = useGameStore((s) => s.userDisplayName);
   const logOut = useGameStore((s) => s.logOut);
   const [showDraw, setShowDraw] = useState(false);
+  const [dark, setDark] = useState(false);
+  const [muted, setMutedState] = useState(false);
 
   useEffect(() => {
     connect();
@@ -37,7 +41,7 @@ export default function Home() {
   }, [drawResult, gameStarted]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-100 to-amber-50 p-4">
+    <div className="min-h-screen bg-[var(--background)] p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -47,8 +51,26 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             {isLoggedIn && (
-              <span className="text-sm text-stone-500">{userDisplayName}</span>
+              <span className="text-sm text-stone-500 dark:text-stone-400">{userDisplayName}</span>
             )}
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => { theme.toggle(); setDark(!dark); }}
+              className="text-sm px-2.5 py-1.5 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300
+                         hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors"
+              title="Toggle dark mode"
+            >
+              {dark ? "☀️" : "🌙"}
+            </button>
+            {/* Sound toggle */}
+            <button
+              onClick={() => { setMuted(!muted); setMutedState(!muted); }}
+              className="text-sm px-2.5 py-1.5 rounded-lg bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300
+                         hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors"
+              title="Toggle sound"
+            >
+              {muted ? "🔇" : "🔊"}
+            </button>
             <div className="flex items-center gap-1.5">
               <div
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -113,14 +135,6 @@ export default function Home() {
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             <div className="flex-1 flex flex-col items-center gap-4 w-full">
               <GameBoard />
-
-              {/* Recent words notification */}
-              {lastWords.length > 0 && (
-                <div className="bg-green-100 border border-green-300 rounded-lg px-4 py-2 text-sm text-green-800 animate-fade-in">
-                  {lastWords.join(", ")} — +{lastScore} pts
-                </div>
-              )}
-
               <TileRack />
             </div>
 
@@ -140,6 +154,8 @@ export default function Home() {
           </div>
         )}
       </div>
+      <ScorePopup />
+      <ChatPanel />
     </div>
   );
 }

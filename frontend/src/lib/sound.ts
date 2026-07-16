@@ -1,6 +1,10 @@
 // Simple sound effects using Web Audio API — no external files needed.
 
 let audioCtx: AudioContext | null = null;
+let _muted = false;
+
+export function setMuted(m: boolean) { _muted = m; }
+export function isMuted() { return _muted; }
 
 function ctx(): AudioContext {
   if (!audioCtx) audioCtx = new AudioContext();
@@ -8,6 +12,7 @@ function ctx(): AudioContext {
 }
 
 function play(freq: number, duration: number, type: OscillatorType = "sine", volume = 0.15) {
+  if (_muted) return;
   try {
     const c = ctx();
     const osc = c.createOscillator();
