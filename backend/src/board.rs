@@ -88,6 +88,10 @@ impl Board {
         if (r == 0 || r == 14) && (c == 0 || c == 7 || c == 14) {
             return Premium::TW;
         }
+        // Edge-mid TW: (7,0) and (7,14) — don't reflect to (0,*) corner
+        if r == 7 && (c == 0 || c == 14) {
+            return Premium::TW;
+        }
 
         // DW positions
         if r == c && (r == 1 || r == 2 || r == 3 || r == 4 || r == 10 || r == 11 || r == 12 || r == 13) {
@@ -189,6 +193,15 @@ mod tests {
         assert_eq!(board.squares[0][14].premium, Premium::TW);
         assert_eq!(board.squares[14][0].premium, Premium::TW);
         assert_eq!(board.squares[14][14].premium, Premium::TW);
+    }
+
+    #[test]
+    fn test_edge_mid_are_tw() {
+        let board = Board::new();
+        assert_eq!(board.squares[0][7].premium, Premium::TW, "(0,7) should be TW");
+        assert_eq!(board.squares[7][0].premium, Premium::TW, "(7,0) should be TW");
+        assert_eq!(board.squares[7][14].premium, Premium::TW, "(7,14) should be TW");
+        assert_eq!(board.squares[14][7].premium, Premium::TW, "(14,7) should be TW");
     }
 
     #[test]

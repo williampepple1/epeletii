@@ -6,6 +6,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
+    /// Sign up a new account
+    SignUp {
+        email: String,
+        password: String,
+        display_name: String,
+    },
+    /// Sign in to existing account
+    SignIn {
+        email: String,
+        password: String,
+    },
     /// Create a new game room
     CreateRoom {
         player_name: String,
@@ -111,6 +122,16 @@ pub enum ServerMessage {
     },
     /// Error message
     Error {
+        message: String,
+    },
+    /// Authentication success
+    AuthSuccess {
+        token: String,
+        email: String,
+        display_name: String,
+    },
+    /// Authentication error
+    AuthError {
         message: String,
     },
     /// Chat message relayed

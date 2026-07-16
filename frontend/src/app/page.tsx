@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { GameBoard } from "@/components/GameBoard";
 import { TileRack } from "@/components/TileRack";
@@ -16,10 +16,21 @@ export default function Home() {
   const lastWords = useGameStore((s) => s.lastWords);
   const lastScore = useGameStore((s) => s.lastScore);
   const playerId = useGameStore((s) => s.playerId);
+  const drawResult = useGameStore((s) => s.drawResult);
+  const [showDraw, setShowDraw] = useState(false);
 
   useEffect(() => {
     connect();
   }, [connect]);
+
+  // Show draw result overlay for 3 seconds
+  useEffect(() => {
+    if (drawResult && gameStarted) {
+      setShowDraw(true);
+      const timer = setTimeout(() => setShowDraw(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [drawResult, gameStarted]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-100 to-amber-50 p-4">
@@ -52,6 +63,30 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* Draw result overlay */}
+        {showDraw && drawResult && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center animate-bounce-in">
+              <h3 className="text-xl font-bold text-stone-800 mb-4">Draw for First!</h3>
+              <div className="space-y-3 mb-6">
+                {drawResult.draws.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-2 bg-stone-50 rounded-lg">
+                    <span className="font-medium text-stone-700">{d.player_name}</span>
+                    <span className="text-2xl font-bold text-amber-700">
+                      {d.letter === " " ? "☆" : d.letter}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-amber-100 rounded-lg p-3">
+                <p className="text-amber-800 font-bold">
+                  🏆 {drawResult.draws.find((d) => d.player_id === drawResult.first_player_id)?.player_name} goes first!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main content */}
         {!gameStarted ? (

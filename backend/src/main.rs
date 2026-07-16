@@ -5,6 +5,7 @@
 
 #![allow(dead_code)]
 
+mod auth;
 mod board;
 mod dictionary;
 mod game;
@@ -12,6 +13,7 @@ mod protocol;
 mod room;
 mod tiles;
 
+use crate::auth::AuthService;
 use crate::dictionary::Dictionary;
 use crate::game::GamePhase;
 use crate::protocol::{ClientMessage, ServerMessage};
@@ -27,6 +29,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 struct AppState {
     rooms: Mutex<RoomManager>,
+    auth: AuthService,
 }
 
 #[tokio::main]
@@ -36,8 +39,16 @@ async fn main() {
     let addr = "0.0.0.0:9001";
     log::info!("Starting Epeletii server on {}", addr);
 
+    let mongo_uri = std::env::var("MONGO_URI")
+        .unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
+    let auth = AuthService::new(&mongo_uri, "epeletii")
+        .await
+        .expect("Failed to connect to MongoDB");
+    log::info!("Connected to MongoDB at {}", mongo_uri);
+
     let state = Arc::new(AppState {
         rooms: Mutex::new(RoomManager::new()),
+        auth,
     });
 
     let listener = TcpListener::bind(addr).await.expect("Failed to bind");
@@ -115,6 +126,40 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
         };
 
         match client_msg {
+            ClientMessage::SignUp { email, password, display_name } => {
+                match state.auth.signup(&email, &password, &display_name).await {
+                    Ok((token, user)) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::AuthSuccess {
+                            token,
+                            email: user.email,
+                            display_name: user.display_name,
+                        }).unwrap());
+                    }
+                    Err(e) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::AuthError {
+                            message: e,
+                        }).unwrap());
+                    }
+                }
+            }
+
+            ClientMessage::SignIn { email, password } => {
+                match state.auth.signin(&email, &password).await {
+                    Ok((token, user)) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::AuthSuccess {
+                            token,
+                            email: user.email,
+                            display_name: user.display_name,
+                        }).unwrap());
+                    }
+                    Err(e) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::AuthError {
+                            message: e,
+                        }).unwrap());
+                    }
+                }
+            }
+
             ClientMessage::CreateRoom { player_name } => {
                 let mut rooms = state.rooms.lock().await;
                 let room = rooms.create_room(

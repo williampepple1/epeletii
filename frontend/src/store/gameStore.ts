@@ -11,6 +11,14 @@ interface GameState {
   roomId: string | null;
   playerName: string | null;
 
+  // Auth
+  isLoggedIn: boolean;
+  authToken: string | null;
+  userEmail: string | null;
+  userDisplayName: string | null;
+  authLoading: boolean;
+  authError: string | null;
+
   // Players
   players: PlayerInfo[];
 
@@ -46,6 +54,9 @@ interface GameState {
 
   // Actions
   setPlayerName: (name: string) => void;
+  signUp: (email: string, password: string, displayName: string) => void;
+  signIn: (email: string, password: string) => void;
+  logOut: () => void;
   createRoom: () => void;
   joinRoom: (roomId: string) => void;
   ready: () => void;
@@ -69,6 +80,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerId: null,
   roomId: null,
   playerName: null,
+  isLoggedIn: false,
+  authToken: null,
+  userEmail: null,
+  userDisplayName: null,
+  authLoading: false,
+  authError: null,
   players: [],
   board: null,
   currentTurn: 0,
@@ -193,13 +210,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       gameSocket.on("GameStarted", (msg) => {
         if (msg.type === "GameStarted") {
+          // Keep drawResult for the overlay — it's cleared after timeout
           set({
             gameStarted: true,
             board: msg.board,
             players: msg.players,
             currentTurn: msg.current_turn,
             error: null,
-            drawResult: null,
             yourTurn: false,
           });
         }
@@ -224,6 +241,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             yourTurn: false, // not our turn anymore after update
             lastWords: [], // clear word notification on new state
             lastScore: 0,
+            drawResult: null, // clear draw overlay
           });
         }
       });
