@@ -514,6 +514,26 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                     }
                 }
             }
+
+            ClientMessage::LookupWord { word } => {
+                if let Some(ref rid) = my_room_id {
+                    let rooms = state.rooms.lock().await;
+                    if let Some(room) = rooms.get_room(rid) {
+                        let definitions = room.game.dictionary.lookup(&word).unwrap_or_default();
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::WordDefinition {
+                            word,
+                            definitions,
+                        }).unwrap());
+                    }
+                } else {
+                    let dict = Dictionary::load();
+                    let definitions = dict.lookup(&word).unwrap_or_default();
+                    let _ = tx.send(serde_json::to_string(&ServerMessage::WordDefinition {
+                        word,
+                        definitions,
+                    }).unwrap());
+                }
+            }
         }
     }
 

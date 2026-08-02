@@ -1,16 +1,33 @@
 //! Ibani dictionary word validator.
-//! Loads words from the Ibani-dictionary SQLite database into a HashSet
-//! for O(1) lookups during gameplay.
+//! Loads words from the Ibani-dictionary SQLite database.
 
 use rusqlite::Connection;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::path::Path;
 use std::sync::Arc;
+use crate::protocol::WordDetail;
 
 /// Thread-safe word dictionary for validation.
 #[derive(Debug, Clone)]
 pub struct Dictionary {
     words: Arc<HashSet<String>>,
+    word_map: Arc<HashMap<String, Vec<WordDetail>>>,
+}
+
+/// Strip tone marks (accents, macrons, graves, carons) from an Ibani word
+/// while preserving underdots (ị, ẹ, ọ, ụ, ḅ).
+pub fn strip_tones(s: &str) -> String {
+    let lower = s.to_lowercase();
+    lower.chars().map(|c| match c {
+        'á' | 'ā' | 'à' | 'â' | 'ǎ' => 'a',
+        'é' | 'ē' | 'è' | 'ê' | 'ě' | 'ë' => 'e',
+        'í' | 'ī' | 'ì' | 'î' | 'ǐ' => 'i',
+        'ó' | 'ō' | 'ò' | 'ô' | 'ǒ' => 'o',
+        'ú' | 'ū' | 'ù' | 'û' | 'ǔ' => 'u',
+        'ń' => 'n',
+        '\u{0301}' | '\u{0304}' | '\u{0300}' | '\u{030c}' | '\u{0302}' => '\0', // combining accents
+        other => other
+    }).filter(|&c| c != '\0').collect()
 }
 
 impl Dictionary {
@@ -28,9 +45,12 @@ impl Dictionary {
         for path in paths.into_iter().flatten() {
             if Path::new(&path).exists() {
                 match Self::load_from_sqlite(&path) {
-                    Ok(words) => {
-                        log::info!("Loaded {} words from {}", words.len(), path);
-                        return Self { words: Arc::new(words) };
+                    Ok((words, word_map)) => {
+                        log::info!("Loaded {} words ({} plain keys) from {}", words.len(), word_map.len(), path);
+                        return Self {
+                            words: Arc::new(words),
+                            word_map: Arc::new(word_map),
+                        };
                     }
                     Err(e) => {
                         log::warn!("Failed to load {}: {}", path, e);
@@ -43,9 +63,12 @@ impl Dictionary {
         for path in &["words.txt", "../words.txt"] {
             if Path::new(path).exists() {
                 match Self::load_from_file(path) {
-                    Ok(words) => {
+                    Ok((words, word_map)) => {
                         log::info!("Loaded {} words from {}", words.len(), path);
-                        return Self { words: Arc::new(words) };
+                        return Self {
+                            words: Arc::new(words),
+                            word_map: Arc::new(word_map),
+                        };
                     }
                     Err(e) => log::warn!("Failed to load {}: {}", path, e),
                 }
@@ -53,50 +76,97 @@ impl Dictionary {
         }
 
         log::warn!("No dictionary found! Word validation disabled.");
-        Self { words: Arc::new(HashSet::new()) }
+        Self {
+            words: Arc::new(HashSet::new()),
+            word_map: Arc::new(HashMap::new()),
+        }
     }
 
     /// Load Ibani words from the SQLite dictionary database.
-    fn load_from_sqlite(path: &str) -> rusqlite::Result<HashSet<String>> {
+    fn load_from_sqlite(path: &str) -> rusqlite::Result<(HashSet<String>, HashMap<String, Vec<WordDetail>>)> {
         let conn = Connection::open(path)?;
-        let mut stmt = conn.prepare("SELECT Ibani_word FROM Ibani_dictionary")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut stmt = conn.prepare("SELECT Ibani_word, Pos, Meaning FROM Ibani_dictionary")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
 
         let mut words = HashSet::new();
+        let mut word_map: HashMap<String, Vec<WordDetail>> = HashMap::new();
         for row in rows {
-            if let Ok(word) = row {
-                // Normalize: lowercase, strip leading/trailing whitespace
-                let cleaned = word.trim().to_lowercase();
-                if !cleaned.is_empty() {
-                    words.insert(cleaned);
+            if let Ok((word, pos, meaning)) = row {
+                let word_trimmed = word.trim().to_string();
+                let cleaned_lower = word_trimmed.to_lowercase();
+                if !cleaned_lower.is_empty() {
+                    words.insert(cleaned_lower.clone());
+                    let plain = strip_tones(&cleaned_lower);
+                    let detail = WordDetail {
+                        word: word_trimmed,
+                        pos: pos.trim().to_string(),
+                        meaning: meaning.trim().to_string(),
+                    };
+                    word_map.entry(plain).or_insert_with(Vec::new).push(detail);
                 }
             }
         }
-        Ok(words)
+        Ok((words, word_map))
     }
 
     /// Load words from a plain text file (one word per line).
-    fn load_from_file(path: &str) -> std::io::Result<HashSet<String>> {
+    fn load_from_file(path: &str) -> std::io::Result<(HashSet<String>, HashMap<String, Vec<WordDetail>>)> {
         let content = std::fs::read_to_string(path)?;
-        let words = content
-            .lines()
-            .map(|l| l.trim().to_lowercase())
-            .filter(|l| !l.is_empty())
-            .collect();
-        Ok(words)
+        let mut words = HashSet::new();
+        let mut word_map = HashMap::new();
+        for line in content.lines() {
+            let word = line.trim().to_lowercase();
+            if !word.is_empty() {
+                words.insert(word.clone());
+                let plain = strip_tones(&word);
+                let detail = WordDetail {
+                    word: word.clone(),
+                    pos: "".to_string(),
+                    meaning: "".to_string(),
+                };
+                word_map.entry(plain).or_insert_with(Vec::new).push(detail);
+            }
+        }
+        Ok((words, word_map))
     }
 
     /// Check if a word is valid in the Ibani dictionary.
     pub fn is_valid_word(&self, word: &str) -> bool {
-        let cleaned = word.trim().to_lowercase();
+        let cleaned = strip_tones(word).trim().to_lowercase();
         if cleaned.is_empty() || cleaned.len() < 2 {
             return false;
         }
-        self.words.contains(&cleaned)
+        self.word_map.contains_key(&cleaned)
+    }
+
+    /// Lookup definitions for a word.
+    pub fn lookup(&self, word: &str) -> Option<Vec<WordDetail>> {
+        let cleaned = strip_tones(word).trim().to_lowercase();
+        self.word_map.get(&cleaned).cloned()
     }
 
     /// Get total number of loaded words.
     pub fn size(&self) -> usize {
         self.words.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_tones() {
+        assert_eq!(strip_tones("ábá"), "aba");
+        assert_eq!(strip_tones("áa"), "aa");
+        assert_eq!(strip_tones("abaji"), "abaji");
+        assert_eq!(strip_tones("ẹ́mẹ́"), "ẹmẹ");
+        assert_eq!(strip_tones("bḅ"), "bḅ");
     }
 }

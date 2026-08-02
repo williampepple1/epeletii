@@ -11,6 +11,7 @@ import { ScorePopup } from "@/components/ScorePopup";
 import { ChatPanel } from "@/components/ChatPanel";
 import { theme } from "@/lib/theme";
 import { setMuted, isMuted } from "@/lib/sound";
+import { DictionarySidebar } from "@/components/DictionarySidebar";
 
 export default function Home() {
   const connect = useGameStore((s) => s.connect);
@@ -28,6 +29,8 @@ export default function Home() {
   const [muted, setMutedState] = useState(false);
 
   useEffect(() => {
+    theme.init();
+    setDark(theme.current === "dark");
     connect();
   }, [connect]);
 
@@ -138,8 +141,9 @@ export default function Home() {
               <TileRack />
             </div>
 
-            <div className="w-full lg:w-64 shrink-0">
+            <div className="w-full lg:w-80 shrink-0 space-y-4">
               <Scoreboard />
+              <DictionarySidebar />
 
               {gameOver && (
                 <button

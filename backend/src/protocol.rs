@@ -44,6 +44,10 @@ pub enum ClientMessage {
     Chat {
         message: String,
     },
+    /// Lookup definitions for a word
+    LookupWord {
+        word: String,
+    },
 }
 
 /// A single tile placement.
@@ -140,6 +144,11 @@ pub enum ServerMessage {
         player_name: String,
         message: String,
     },
+    /// Word definitions returned
+    WordDefinition {
+        word: String,
+        definitions: Vec<WordDetail>,
+    },
     /// Room state for reconnection
     RoomState {
         room_id: String,
@@ -176,4 +185,11 @@ pub struct DrawEntry {
     pub player_id: String,
     pub player_name: String,
     pub letter: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WordDetail {
+    pub word: String,
+    pub pos: String,
+    pub meaning: String,
 }

@@ -1,7 +1,7 @@
 // Zustand game store for the Scrabble game
 
 import { create } from "zustand";
-import { BoardSquare, PlayerInfo, ServerMessage } from "@/types/game";
+import { BoardSquare, PlayerInfo, ServerMessage, WordDetail } from "@/types/game";
 import { gameSocket } from "@/lib/websocket";
 import { sounds } from "@/lib/sound";
 
@@ -53,6 +53,9 @@ interface GameState {
   // Draw result
   drawResult: { draws: { player_id: string; player_name: string; letter: string }[]; first_player_id: string } | null;
 
+  activeDefinitions: Record<string, WordDetail[]>;
+  lookupHistory: string[];
+
   // Actions
   setPlayerName: (name: string) => void;
   signUp: (email: string, password: string, displayName: string) => void;
@@ -71,6 +74,8 @@ interface GameState {
   removePendingPlacement: (row: number, col: number) => void;
   clearPlacements: () => void;
   sendChat: (message: string) => void;
+  lookupWord: (word: string) => void;
+  shuffleRack: () => void;
   connect: () => Promise<void>;
   reset: () => void;
 }
@@ -106,6 +111,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   lastWords: [],
   lastScore: 0,
   drawResult: null,
+  activeDefinitions: {},
+  lookupHistory: [],
 
   setPlayerName: (name) => set({ playerName: name }),
 
@@ -214,6 +221,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     gameSocket.send({ type: "Chat", message });
   },
 
+  lookupWord: (word) => {
+    if (!word) return;
+    const lower = word.trim().toLowerCase();
+    if (get().activeDefinitions[lower]) return;
+    gameSocket.send({ type: "LookupWord", word: lower });
+  },
+
+  shuffleRack: () => {
+    const { myTiles } = get();
+    if (myTiles.length <= 1) return;
+    const shuffled = [...myTiles];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    set({ myTiles: shuffled, selectedTile: null });
+  },
+
   connect: async () => {
     try {
       await gameSocket.connect();
@@ -309,6 +334,27 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastScore: msg.score,
           });
           sounds.moveSubmit();
+          msg.words_formed.forEach((word) => {
+            get().lookupWord(word);
+          });
+        }
+      });
+
+      gameSocket.on("WordDefinition", (msg) => {
+        if (msg.type === "WordDefinition") {
+          const lower = msg.word.trim().toLowerCase();
+          const activeDefs = { ...get().activeDefinitions };
+          activeDefs[lower] = msg.definitions;
+
+          const history = [
+            lower,
+            ...get().lookupHistory.filter((w) => w !== lower)
+          ].slice(0, 50);
+
+          set({
+            activeDefinitions: activeDefs,
+            lookupHistory: history,
+          });
         }
       });
 
@@ -390,6 +436,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       chatMessages: [],
       lastWords: [],
       lastScore: 0,
+      activeDefinitions: {},
+      lookupHistory: [],
     });
   },
 }));

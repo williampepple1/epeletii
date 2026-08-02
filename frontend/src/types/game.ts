@@ -32,7 +32,8 @@ export type ClientMessage =
   | { type: "ExchangeTiles"; letters: string[] }
   | { type: "PassTurn" }
   | { type: "Resign" }
-  | { type: "Chat"; message: string };
+  | { type: "Chat"; message: string }
+  | { type: "LookupWord"; word: string };
 
 // Server -> Client messages
 export type ServerMessage =
@@ -52,6 +53,7 @@ export type ServerMessage =
   | { type: "AuthSuccess"; token: string; email: string; display_name: string }
   | { type: "AuthError"; message: string }
   | { type: "Chat"; player_id: string; player_name: string; message: string }
+  | { type: "WordDefinition"; word: string; definitions: WordDetail[] }
   | { type: "RoomState"; room_id: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null };
 
 // Premium square display mapping
@@ -70,3 +72,9 @@ export const PREMIUM_COLORS: Record<string, string> = {
   TW: "bg-red-500 text-white",
   Normal: "bg-amber-50",
 };
+
+export interface WordDetail {
+  word: string;
+  pos: string;
+  meaning: string;
+}
