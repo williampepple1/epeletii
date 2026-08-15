@@ -215,6 +215,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setLeaderboardOpen: (open) => {
     set({ leaderboardOpen: open });
+    if (open) {
+      get().getLeaderboard();
+    }
   },
 
   exchangeTiles: (letters) => {
