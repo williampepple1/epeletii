@@ -333,6 +333,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             playerName: msg.display_name,
             authLoading: false,
             authError: null,
+            leaderboardOpen: true,
           });
         }
       });
