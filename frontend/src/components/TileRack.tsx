@@ -27,11 +27,30 @@ export function TileRack() {
   const myPlayer = useGameStore((s) => s.players.find((p) => p.id === s.playerId));
   const tilesRemaining = useGameStore((s) => s.tilesRemaining);
   const shuffleRack = useGameStore((s) => s.shuffleRack);
+  const playerId = useGameStore((s) => s.playerId);
+  const players = useGameStore((s) => s.players);
+  const currentTurn = useGameStore((s) => s.currentTurn);
 
   const [exchangeMode, setExchangeMode] = useState(false);
   const [exchangeSet, setExchangeSet] = useState<Set<number>>(new Set());
 
   if (!gameStarted) return null;
+
+  const isSpectator = !players.some((p) => p.id === playerId);
+
+  if (isSpectator) {
+    const activePlayerName = players[currentTurn]?.name || "Someone";
+    return (
+      <div className="flex flex-col items-center gap-2.5 w-full max-w-lg mx-auto bg-stone-150/40 dark:bg-stone-900/30 p-5 rounded-xl border border-stone-250/20 dark:border-stone-850/50 backdrop-blur-xs text-center shadow-lg">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-650 text-white px-5 py-1.5 rounded-full text-xs font-black shadow-md tracking-wide flex items-center gap-1.5 animate-pulse">
+          👓 Spectator Mode
+        </div>
+        <p className="text-sm font-semibold text-stone-700 dark:text-stone-300 mt-2">
+          Watching the game in progress. Current turn: <strong className="text-amber-600 dark:text-amber-400 font-bold">{activePlayerName}</strong>
+        </p>
+      </div>
+    );
+  }
 
   const canSubmit = pendingPlacements.length > 0 && yourTurn && !exchangeMode;
   const canClear = pendingPlacements.length > 0 && yourTurn && !exchangeMode;

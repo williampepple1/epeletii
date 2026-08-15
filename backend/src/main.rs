@@ -702,6 +702,7 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
 
                         let _ = tx.send(serde_json::to_string(&ServerMessage::RoomState {
                             room_id: room_id.clone(),
+                            player_id: Some(player_id.clone()),
                             players,
                             board,
                             scores,
@@ -740,6 +741,63 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                     Err(e) => {
                         send_err(&format!("Failed to load leaderboard: {}", e));
                     }
+                }
+            }
+
+            ClientMessage::GetActiveRooms => {
+                let rooms = state.rooms.lock().await;
+                let active_rooms: Vec<crate::protocol::ActiveRoomInfo> = rooms
+                    .get_all_rooms()
+                    .iter()
+                    .filter(|r| r.game.phase != crate::game::GamePhase::Finished)
+                    .map(|r| crate::protocol::ActiveRoomInfo {
+                        id: r.id.clone(),
+                        name: r.name.clone(),
+                        player_count: r.game.players.len(),
+                        max_players: r.max_players,
+                        game_started: r.game.phase == crate::game::GamePhase::Playing,
+                    })
+                    .collect();
+
+                let _ = tx.send(serde_json::to_string(&ServerMessage::ActiveRooms {
+                    rooms: active_rooms,
+                }).unwrap());
+            }
+
+            ClientMessage::SpectateRoom { room_id } => {
+                let mut rooms = state.rooms.lock().await;
+                if let Some(room) = rooms.get_room_mut(&room_id) {
+                    let new_id = format!("spectator_{}", uuid::Uuid::new_v4());
+                    log::info!("Spectator ({}) spectating room {} [from {}]", new_id, room_id, peer);
+                    room.register_sender(&new_id, tx.clone());
+
+                    let game_started = matches!(room.game.phase, crate::game::GamePhase::Playing | crate::game::GamePhase::Finished);
+                    let game_over = matches!(room.game.phase, crate::game::GamePhase::Finished);
+
+                    let board = room.board_squares();
+                    let players = room.player_info_list();
+                    let scores = room.game.players.iter().map(|p| p.score).collect();
+                    let current_turn = room.game.current_player_index() as u8;
+                    let tiles_remaining = room.game.tiles_remaining();
+                    let winner = room.game.winner.clone();
+
+                    let _ = tx.send(serde_json::to_string(&ServerMessage::RoomState {
+                        room_id: room_id.clone(),
+                        player_id: Some(new_id.clone()),
+                        players,
+                        board,
+                        scores,
+                        current_turn,
+                        tiles_remaining,
+                        game_started,
+                        game_over,
+                        winner,
+                    }).unwrap());
+
+                    my_player_id = Some(new_id);
+                    my_room_id = Some(room_id);
+                } else {
+                    send_err(&format!("Room {} not found", room_id));
                 }
             }
         }

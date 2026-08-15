@@ -35,7 +35,9 @@ export type ClientMessage =
   | { type: "Chat"; message: string }
   | { type: "LookupWord"; word: string }
   | { type: "RejoinRoom"; room_id: string; player_id: string }
-  | { type: "GetLeaderboard" };
+  | { type: "GetLeaderboard" }
+  | { type: "GetActiveRooms" }
+  | { type: "SpectateRoom"; room_id: string };
 
 // Server -> Client messages
 export type ServerMessage =
@@ -56,8 +58,17 @@ export type ServerMessage =
   | { type: "AuthError"; message: string }
   | { type: "Chat"; player_id: string; player_name: string; message: string }
   | { type: "WordDefinition"; word: string; definitions: WordDetail[] }
-  | { type: "RoomState"; room_id: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null }
-  | { type: "Leaderboard"; entries: LeaderboardEntry[] };
+  | { type: "RoomState"; room_id: string; player_id?: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null }
+  | { type: "Leaderboard"; entries: LeaderboardEntry[] }
+  | { type: "ActiveRooms"; rooms: ActiveRoomInfo[] };
+
+export interface ActiveRoomInfo {
+  id: string;
+  name: string;
+  player_count: number;
+  max_players: number;
+  game_started: boolean;
+}
 
 export interface LeaderboardEntry {
   display_name: string;

@@ -57,6 +57,12 @@ pub enum ClientMessage {
     },
     /// Fetch the leaderboard
     GetLeaderboard,
+    /// Fetch list of active/public game rooms
+    GetActiveRooms,
+    /// Spectate an existing game room
+    SpectateRoom {
+        room_id: String,
+    },
 }
 
 /// A single tile placement.
@@ -161,6 +167,7 @@ pub enum ServerMessage {
     /// Room state for reconnection
     RoomState {
         room_id: String,
+        player_id: Option<String>,
         players: Vec<PlayerInfo>,
         board: Vec<Vec<BoardSquare>>,
         scores: Vec<u32>,
@@ -174,6 +181,19 @@ pub enum ServerMessage {
     Leaderboard {
         entries: Vec<LeaderboardEntry>,
     },
+    /// Active/public game rooms data
+    ActiveRooms {
+        rooms: Vec<ActiveRoomInfo>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveRoomInfo {
+    pub id: String,
+    pub name: String,
+    pub player_count: usize,
+    pub max_players: usize,
+    pub game_started: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

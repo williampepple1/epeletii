@@ -1,7 +1,7 @@
 // Zustand game store for the Scrabble game
 
 import { create } from "zustand";
-import { BoardSquare, PlayerInfo, ServerMessage, WordDetail, LeaderboardEntry } from "@/types/game";
+import { BoardSquare, PlayerInfo, ServerMessage, WordDetail, LeaderboardEntry, ActiveRoomInfo } from "@/types/game";
 import { gameSocket } from "@/lib/websocket";
 import { sounds } from "@/lib/sound";
 
@@ -59,6 +59,8 @@ interface GameState {
   leaderboard: LeaderboardEntry[];
   leaderboardOpen: boolean;
 
+  activeRooms: ActiveRoomInfo[];
+
   // Actions
   setPlayerName: (name: string) => void;
   signUp: (email: string, password: string, displayName: string) => void;
@@ -66,6 +68,7 @@ interface GameState {
   logOut: () => void;
   createRoom: () => void;
   joinRoom: (roomId: string) => void;
+  spectateRoom: (roomId: string) => void;
   ready: () => void;
   placeTiles: () => void;
   passTurn: () => void;
@@ -82,6 +85,7 @@ interface GameState {
   shuffleRack: () => void;
   getLeaderboard: () => void;
   setLeaderboardOpen: (open: boolean) => void;
+  getActiveRooms: () => void;
   connect: () => Promise<void>;
   reset: () => void;
 }
@@ -126,6 +130,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   lookupHistory: [],
   leaderboard: [],
   leaderboardOpen: false,
+  activeRooms: [],
 
   setPlayerName: (name) => set({ playerName: name }),
 
@@ -183,6 +188,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
+  spectateRoom: (roomId) => {
+    gameSocket.send({
+      type: "SpectateRoom",
+      room_id: roomId,
+    });
+  },
+
   ready: () => {
     gameSocket.send({ type: "Ready" });
   },
@@ -218,6 +230,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (open) {
       get().getLeaderboard();
     }
+  },
+
+  getActiveRooms: () => {
+    gameSocket.send({ type: "GetActiveRooms" });
   },
 
   exchangeTiles: (letters) => {
@@ -373,7 +389,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       gameSocket.on("RoomState", (msg) => {
         if (msg.type === "RoomState") {
-          set({
+          const update: any = {
             roomId: msg.room_id,
             players: msg.players,
             board: msg.board,
@@ -384,13 +400,27 @@ export const useGameStore = create<GameState>((set, get) => ({
             winner: msg.winner,
             error: null,
             drawResult: null,
-          });
+          };
+          if (msg.player_id) {
+            update.playerId = msg.player_id;
+            if (isClient) {
+              localStorage.setItem("roomId", msg.room_id);
+              localStorage.setItem("playerId", msg.player_id);
+            }
+          }
+          set(update);
         }
       });
 
       gameSocket.on("Leaderboard", (msg) => {
         if (msg.type === "Leaderboard") {
           set({ leaderboard: msg.entries });
+        }
+      });
+
+      gameSocket.on("ActiveRooms", (msg) => {
+        if (msg.type === "ActiveRooms") {
+          set({ activeRooms: msg.rooms });
         }
       });
 

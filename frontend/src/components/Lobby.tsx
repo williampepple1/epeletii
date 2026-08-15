@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGameStore } from "@/store/gameStore";
 
 export function Lobby() {
@@ -16,8 +16,19 @@ export function Lobby() {
   const setPlayerName = useGameStore((s) => s.setPlayerName);
   const createRoom = useGameStore((s) => s.createRoom);
   const joinRoom = useGameStore((s) => s.joinRoom);
+  const spectateRoom = useGameStore((s) => s.spectateRoom);
   const ready = useGameStore((s) => s.ready);
   const roomId = useGameStore((s) => s.roomId);
+  const activeRooms = useGameStore((s) => s.activeRooms || []);
+  const getActiveRooms = useGameStore((s) => s.getActiveRooms);
+
+  useEffect(() => {
+    if (playerName && !roomId) {
+      getActiveRooms();
+      const interval = setInterval(getActiveRooms, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [playerName, roomId, getActiveRooms]);
 
   if (gameStarted) return null;
 
@@ -68,32 +79,92 @@ export function Lobby() {
           </button>
         </div>
       ) : !roomId ? (
-        <div className="space-y-3">
-          <button
-            onClick={createRoom}
-            className="w-full py-3 bg-amber-600 text-white rounded-lg font-semibold
-                       hover:bg-amber-700 transition-colors text-lg"
-          >
-            Create New Room
-          </button>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Room ID to join"
-              value={joinId}
-              onChange={(e) => setJoinId(e.target.value)}
-              className="flex-1 px-4 py-2 border border-stone-300 rounded-lg text-stone-800
-                         focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder:text-stone-800"
-            />
+        <div className="space-y-4">
+          <div className="space-y-3">
             <button
-              onClick={() => joinRoom(joinId.trim())}
-              disabled={!joinId.trim()}
-              className="px-4 py-2 bg-stone-600 text-white rounded-lg font-medium
-                         hover:bg-stone-700 disabled:opacity-40 transition-colors"
+              onClick={createRoom}
+              className="w-full py-3 bg-amber-600 text-white rounded-lg font-semibold
+                         hover:bg-amber-700 transition-colors text-lg"
             >
-              Join
+              Create New Room
             </button>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Room ID to join"
+                value={joinId}
+                onChange={(e) => setJoinId(e.target.value)}
+                className="flex-1 px-4 py-2 border border-stone-300 rounded-lg text-stone-800
+                           focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder:text-stone-800"
+              />
+              <button
+                onClick={() => joinRoom(joinId.trim())}
+                disabled={!joinId.trim()}
+                className="px-4 py-2 bg-stone-600 text-white rounded-lg font-medium
+                           hover:bg-stone-700 disabled:opacity-40 transition-colors"
+              >
+                Join
+              </button>
+            </div>
+          </div>
+
+          {/* Active Rooms Directory */}
+          <div className="pt-4 border-t border-stone-200 dark:border-stone-750 space-y-3">
+            <h3 className="text-sm font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+              🌍 Active Public Rooms
+            </h3>
+            
+            {activeRooms.length === 0 ? (
+              <div className="text-center py-6 px-4 bg-stone-50 dark:bg-stone-850/20 rounded-xl border border-dashed border-stone-200 dark:border-stone-850 text-xs text-stone-400">
+                No active games currently. Create one to get started!
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {activeRooms.map((room) => {
+                  const isFull = room.player_count >= room.max_players;
+                  const canJoin = !room.game_started && !isFull;
+                  
+                  return (
+                    <div
+                      key={room.id}
+                      className="flex items-center justify-between p-3 bg-stone-50 dark:bg-stone-850/50 rounded-xl border border-stone-200/60 dark:border-stone-800/80 hover:shadow-xs transition-all"
+                    >
+                      <div className="space-y-0.5 text-left">
+                        <p className="text-sm font-bold text-stone-800 dark:text-stone-250 truncate max-w-[180px]">
+                          {room.name}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] font-semibold text-stone-500">
+                          <span className={`px-1.5 py-0.5 rounded-full ${room.game_started ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" : "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"}`}>
+                            {room.game_started ? "In Progress" : "Lobby"}
+                          </span>
+                          <span>•</span>
+                          <span>{room.player_count}/{room.max_players} players</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        {canJoin ? (
+                          <button
+                            onClick={() => joinRoom(room.id)}
+                            className="px-3.5 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors shadow-xs"
+                          >
+                            Join
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => spectateRoom(room.id)}
+                            className="px-3.5 py-1.5 text-xs bg-stone-600 hover:bg-stone-700 dark:bg-stone-800 dark:hover:bg-stone-700 text-white dark:text-stone-300 font-bold rounded-lg transition-colors shadow-xs"
+                          >
+                            Spectate
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       ) : (

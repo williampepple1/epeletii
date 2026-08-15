@@ -139,6 +139,10 @@ impl RoomManager {
         self.rooms.remove(id);
     }
 
+    pub fn get_all_rooms(&self) -> Vec<&Room> {
+        self.rooms.values().collect()
+    }
+
     /// Restore a previously persisted game room (e.g., loaded from MongoDB on startup).
     pub fn restore_room(&mut self, room_id: String, game: crate::game::Game) {
         let room = Room {
