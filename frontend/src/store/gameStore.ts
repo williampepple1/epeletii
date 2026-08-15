@@ -1,7 +1,7 @@
 // Zustand game store for the Scrabble game
 
 import { create } from "zustand";
-import { BoardSquare, PlayerInfo, ServerMessage, WordDetail } from "@/types/game";
+import { BoardSquare, PlayerInfo, ServerMessage, WordDetail, LeaderboardEntry } from "@/types/game";
 import { gameSocket } from "@/lib/websocket";
 import { sounds } from "@/lib/sound";
 
@@ -56,6 +56,9 @@ interface GameState {
   activeDefinitions: Record<string, WordDetail[]>;
   lookupHistory: string[];
 
+  leaderboard: LeaderboardEntry[];
+  leaderboardOpen: boolean;
+
   // Actions
   setPlayerName: (name: string) => void;
   signUp: (email: string, password: string, displayName: string) => void;
@@ -77,6 +80,8 @@ interface GameState {
   sendChat: (message: string) => void;
   lookupWord: (word: string) => void;
   shuffleRack: () => void;
+  getLeaderboard: () => void;
+  setLeaderboardOpen: (open: boolean) => void;
   connect: () => Promise<void>;
   reset: () => void;
 }
@@ -119,6 +124,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   drawResult: null,
   activeDefinitions: {},
   lookupHistory: [],
+  leaderboard: [],
+  leaderboardOpen: false,
 
   setPlayerName: (name) => set({ playerName: name }),
 
@@ -151,19 +158,29 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameStarted: false,
       board: null,
       myTiles: [],
+      leaderboardOpen: false,
     });
   },
 
   createRoom: () => {
-    const { playerName } = get();
+    const { playerName, authToken } = get();
     if (!playerName) return;
-    gameSocket.send({ type: "CreateRoom", player_name: playerName });
+    gameSocket.send({
+      type: "CreateRoom",
+      player_name: playerName,
+      token: authToken || undefined,
+    });
   },
 
   joinRoom: (roomId) => {
-    const { playerName } = get();
+    const { playerName, authToken } = get();
     if (!playerName) return;
-    gameSocket.send({ type: "JoinRoom", room_id: roomId, player_name: playerName });
+    gameSocket.send({
+      type: "JoinRoom",
+      room_id: roomId,
+      player_name: playerName,
+      token: authToken || undefined,
+    });
   },
 
   ready: () => {
@@ -190,6 +207,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   resign: () => {
     gameSocket.send({ type: "Resign" });
+  },
+
+  getLeaderboard: () => {
+    gameSocket.send({ type: "GetLeaderboard" });
+  },
+
+  setLeaderboardOpen: (open) => {
+    set({ leaderboardOpen: open });
   },
 
   exchangeTiles: (letters) => {
@@ -359,6 +384,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       });
 
+      gameSocket.on("Leaderboard", (msg) => {
+        if (msg.type === "Leaderboard") {
+          set({ leaderboard: msg.entries });
+        }
+      });
+
       gameSocket.on("PlayerJoined", (msg) => {
         if (msg.type === "PlayerJoined") {
           set((state) => ({
@@ -520,6 +551,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastScore: 0,
       activeDefinitions: {},
       lookupHistory: [],
+      leaderboardOpen: false,
     });
   },
 }));

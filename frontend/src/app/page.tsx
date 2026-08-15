@@ -12,6 +12,7 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { theme } from "@/lib/theme";
 import { setMuted, isMuted } from "@/lib/sound";
 import { DictionarySidebar } from "@/components/DictionarySidebar";
+import { LeaderboardModal } from "@/components/LeaderboardModal";
 
 export default function Home() {
   const connect = useGameStore((s) => s.connect);
@@ -24,6 +25,7 @@ export default function Home() {
   const isLoggedIn = useGameStore((s) => s.isLoggedIn);
   const userDisplayName = useGameStore((s) => s.userDisplayName);
   const logOut = useGameStore((s) => s.logOut);
+  const setLeaderboardOpen = useGameStore((s) => s.setLeaderboardOpen);
   const [showDraw, setShowDraw] = useState(false);
   const [dark, setDark] = useState(false);
   const [muted, setMutedState] = useState(false);
@@ -95,6 +97,15 @@ export default function Home() {
             )}
             {isLoggedIn && (
               <button
+                onClick={() => setLeaderboardOpen(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-bold
+                           hover:bg-amber-200 transition-colors"
+              >
+                🏆 Leaderboard
+              </button>
+            )}
+            {isLoggedIn && (
+              <button
                 onClick={logOut}
                 className="text-xs px-3 py-1.5 rounded-lg bg-stone-200 text-stone-600
                            hover:bg-stone-300 transition-colors"
@@ -160,6 +171,7 @@ export default function Home() {
       </div>
       <ScorePopup />
       <ChatPanel />
+      <LeaderboardModal />
     </div>
   );
 }

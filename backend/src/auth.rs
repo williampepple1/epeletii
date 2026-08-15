@@ -15,6 +15,12 @@ pub struct User {
     pub password_hash: String,
     pub display_name: String,
     pub created_at: i64,
+    #[serde(default)]
+    pub games_played: u32,
+    #[serde(default)]
+    pub games_won: u32,
+    #[serde(default)]
+    pub total_score: u32,
 }
 
 /// JWT claims payload.
@@ -92,6 +98,9 @@ impl AuthService {
             password_hash,
             display_name: display_name.to_string(),
             created_at: Utc::now().timestamp(),
+            games_played: 0,
+            games_won: 0,
+            total_score: 0,
         };
 
         self.users
@@ -168,5 +177,40 @@ impl AuthService {
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         )
         .map_err(|e| format!("Failed to create token: {}", e))
+    }
+
+    /// Record the game result for a player
+    pub async fn record_game_result(&self, email: &str, score: u32, won: bool) {
+        let update = doc! {
+            "$inc": {
+                "games_played": 1,
+                "games_won": if won { 1 } else { 0 },
+                "total_score": score,
+            }
+        };
+        let _ = self.users.update_one(doc! { "email": email }, update).await;
+    }
+
+    /// Get top 10 players ranked by total_score
+    pub async fn get_leaderboard(&self) -> Result<Vec<crate::protocol::LeaderboardEntry>, String> {
+        let filter = doc! {};
+        let mut cursor = self.users.find(filter)
+            .sort(doc! { "total_score": -1 })
+            .limit(10)
+            .await
+            .map_err(|e| format!("Failed to fetch leaderboard: {}", e))?;
+        
+        let mut list = Vec::new();
+        while cursor.advance().await.unwrap_or(false) {
+            if let Ok(user) = cursor.deserialize_current() {
+                list.push(crate::protocol::LeaderboardEntry {
+                    display_name: user.display_name,
+                    games_played: user.games_played,
+                    games_won: user.games_won,
+                    total_score: user.total_score,
+                });
+            }
+        }
+        Ok(list)
     }
 }

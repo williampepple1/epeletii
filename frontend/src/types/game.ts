@@ -25,8 +25,8 @@ export interface BoardSquare {
 export type ClientMessage =
   | { type: "SignUp"; email: string; password: string; display_name: string }
   | { type: "SignIn"; email: string; password: string }
-  | { type: "CreateRoom"; player_name: string }
-  | { type: "JoinRoom"; room_id: string; player_name: string }
+  | { type: "CreateRoom"; player_name: string; token?: string }
+  | { type: "JoinRoom"; room_id: string; player_name: string; token?: string }
   | { type: "Ready" }
   | { type: "PlaceTiles"; placements: TilePlacement[] }
   | { type: "ExchangeTiles"; letters: string[] }
@@ -34,7 +34,8 @@ export type ClientMessage =
   | { type: "Resign" }
   | { type: "Chat"; message: string }
   | { type: "LookupWord"; word: string }
-  | { type: "RejoinRoom"; room_id: string; player_id: string };
+  | { type: "RejoinRoom"; room_id: string; player_id: string }
+  | { type: "GetLeaderboard" };
 
 // Server -> Client messages
 export type ServerMessage =
@@ -55,7 +56,15 @@ export type ServerMessage =
   | { type: "AuthError"; message: string }
   | { type: "Chat"; player_id: string; player_name: string; message: string }
   | { type: "WordDefinition"; word: string; definitions: WordDetail[] }
-  | { type: "RoomState"; room_id: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null };
+  | { type: "RoomState"; room_id: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null }
+  | { type: "Leaderboard"; entries: LeaderboardEntry[] };
+
+export interface LeaderboardEntry {
+  display_name: string;
+  games_played: number;
+  games_won: number;
+  total_score: number;
+}
 
 // Premium square display mapping
 export const PREMIUM_LABELS: Record<string, string> = {

@@ -15,7 +15,6 @@ mod tiles;
 
 use crate::auth::AuthService;
 use crate::dictionary::Dictionary;
-use crate::game::GamePhase;
 use crate::protocol::{ClientMessage, ServerMessage};
 use crate::room::RoomManager;
 
@@ -161,13 +160,18 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 }
             }
 
-            ClientMessage::CreateRoom { player_name } => {
+            ClientMessage::CreateRoom { player_name, token } => {
                 let mut rooms = state.rooms.lock().await;
                 let room = rooms.create_room(
                     format!("{}'s Game", player_name),
                     Dictionary::load(),
                 );
-                let new_id = uuid::Uuid::new_v4().to_string();
+                let mut new_id = uuid::Uuid::new_v4().to_string();
+                if let Some(ref t) = token {
+                    if let Ok(claims) = state.auth.verify_token(t) {
+                        new_id = claims.sub;
+                    }
+                }
                 log::info!("Room {} created by {} (player {}) [from {}]", room.id, player_name, new_id, peer);
                 room.game.add_player(new_id.clone(), player_name);
                 room.register_sender(&new_id, tx.clone());
@@ -185,14 +189,19 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 my_room_id = Some(room.id.clone());
             }
 
-            ClientMessage::JoinRoom { room_id, player_name } => {
+            ClientMessage::JoinRoom { room_id, player_name, token } => {
                 let mut rooms = state.rooms.lock().await;
                 if let Some(room) = rooms.get_room_mut(&room_id) {
                     if room.game.players.len() >= room.max_players {
                         send_err("Room is full");
                         continue;
                     }
-                    let new_id = uuid::Uuid::new_v4().to_string();
+                    let mut new_id = uuid::Uuid::new_v4().to_string();
+                    if let Some(ref t) = token {
+                        if let Ok(claims) = state.auth.verify_token(t) {
+                            new_id = claims.sub;
+                        }
+                    }
                     log::info!("Player {} ({}) joining room {} [from {}]", player_name, new_id, room_id, peer);
                     room.game.add_player(new_id.clone(), player_name);
                     room.register_sender(&new_id, tx.clone());
@@ -344,6 +353,15 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     let winner = room.game.get_winner();
                                     let scores: Vec<u32> =
                                         room.game.players.iter().map(|p| p.score).collect();
+
+                                    // Update database for all registered players
+                                    for p in &room.game.players {
+                                        if p.id.contains('@') {
+                                            let won = Some(p.id.clone()) == winner;
+                                            state.auth.record_game_result(&p.id, p.score, won).await;
+                                        }
+                                    }
+
                                     room.broadcast(&ServerMessage::GameOver {
                                         winner,
                                         final_scores: scores,
@@ -435,10 +453,19 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                             player_id: pid.clone(),
                         });
                         room.game.pass_turn();
-                        if matches!(room.game.phase, GamePhase::Finished) {
+                        if matches!(room.game.phase, crate::game::GamePhase::Finished) {
                             let winner = room.game.get_winner();
                             let scores: Vec<u32> =
                                 room.game.players.iter().map(|p| p.score).collect();
+
+                            // Update database for all registered players
+                            for p in &room.game.players {
+                                if p.id.contains('@') {
+                                    let won = Some(p.id.clone()) == winner;
+                                    state.auth.record_game_result(&p.id, p.score, won).await;
+                                }
+                            }
+
                             room.broadcast(&ServerMessage::GameOver {
                                 winner,
                                 final_scores: scores,
@@ -559,6 +586,14 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
 
                             room.game.end_game(winner.clone(), format!("{} resigned", resigning_name));
 
+                            // Update database for all registered players
+                            for p in &room.game.players {
+                                if p.id.contains('@') {
+                                    let won = Some(p.id.clone()) == winner;
+                                    state.auth.record_game_result(&p.id, p.score, won).await;
+                                }
+                            }
+
                             let scores: Vec<u32> =
                                 room.game.players.iter().map(|p| p.score).collect();
                             
@@ -639,6 +674,19 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                     }
                 } else {
                     send_err("Room not found");
+                }
+            }
+
+            ClientMessage::GetLeaderboard => {
+                match state.auth.get_leaderboard().await {
+                    Ok(entries) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::Leaderboard {
+                            entries,
+                        }).unwrap());
+                    }
+                    Err(e) => {
+                        send_err(&format!("Failed to load leaderboard: {}", e));
+                    }
                 }
             }
         }

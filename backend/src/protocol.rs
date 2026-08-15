@@ -20,11 +20,13 @@ pub enum ClientMessage {
     /// Create a new game room
     CreateRoom {
         player_name: String,
+        token: Option<String>,
     },
     /// Join an existing game room
     JoinRoom {
         room_id: String,
         player_name: String,
+        token: Option<String>,
     },
     /// Ready to start
     Ready,
@@ -53,6 +55,8 @@ pub enum ClientMessage {
         room_id: String,
         player_id: String,
     },
+    /// Fetch the leaderboard
+    GetLeaderboard,
 }
 
 /// A single tile placement.
@@ -166,6 +170,18 @@ pub enum ServerMessage {
         game_over: bool,
         winner: Option<String>,
     },
+    /// Leaderboard data
+    Leaderboard {
+        entries: Vec<LeaderboardEntry>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeaderboardEntry {
+    pub display_name: String,
+    pub games_played: u32,
+    pub games_won: u32,
+    pub total_score: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
