@@ -114,8 +114,10 @@ export function TileRack() {
           }
 
           return (
-            <button
+            <div
               key={i}
+              role="button"
+              tabIndex={0}
               draggable={yourTurn && !exchangeMode}
               onDragStart={(e) => {
                 if (!yourTurn || exchangeMode) { e.preventDefault(); return; }
@@ -128,6 +130,15 @@ export function TileRack() {
                 if (exchangeMode) { toggleExchange(i); return; }
                 selectTile(isSelected ? null : i);
                 if (!isSelected) sounds.tilePickup();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (!yourTurn) return;
+                  if (exchangeMode) { toggleExchange(i); return; }
+                  selectTile(isSelected ? null : i);
+                  if (!isSelected) sounds.tilePickup();
+                }
               }}
               className={tileClass}
             >
@@ -142,7 +153,7 @@ export function TileRack() {
                   ✓
                 </span>
               )}
-            </button>
+            </div>
           );
         })}
       </div>

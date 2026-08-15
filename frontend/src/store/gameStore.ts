@@ -68,7 +68,7 @@ interface GameState {
   passTurn: () => void;
   exchangeTiles: (letters: string[]) => void;
   selectTile: (index: number | null) => void;
-  placeOnBoard: (row: number, col: number) => void;
+  placeOnBoard: (row: number, col: number, tileIndex?: number) => void;
   dropOnBoard: (row: number, col: number, tileIndex: number) => void;
   /// Remove a single pending tile back to rack
   removePendingPlacement: (row: number, col: number) => void;
@@ -176,20 +176,36 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   selectTile: (index) => set({ selectedTile: index }),
 
-  placeOnBoard: (row, col) => {
-    const { selectedTile, myTiles, pendingPlacements, board } = get();
-    if (selectedTile === null || selectedTile >= myTiles.length || !board) return;
+  placeOnBoard: (row, col, tileIndex) => {
+    const { selectedTile: storeSelected, myTiles, pendingPlacements, board } = get();
+    const index = tileIndex !== undefined ? tileIndex : storeSelected;
+    if (index === null || index === undefined || index >= myTiles.length || !board) return;
     // Check square is empty on the real board and not already pending
     if (board[row][col].tile) return;
     if (pendingPlacements.some((p) => p.row === row && p.col === col)) return;
-    const letter = myTiles[selectedTile];
+    const letter = myTiles[index];
     const newPending = [...pendingPlacements, { row, col, letter }];
     const newTiles = [...myTiles];
-    newTiles.splice(selectedTile, 1);
+    newTiles.splice(index, 1);
+
+    // Update selectedTile to a safe value
+    let nextSelected = storeSelected;
+    if (tileIndex === undefined) {
+      nextSelected = Math.min(index, newTiles.length - 1);
+    } else {
+      if (storeSelected !== null) {
+        if (index === storeSelected) {
+          nextSelected = null;
+        } else if (index < storeSelected) {
+          nextSelected = storeSelected - 1;
+        }
+      }
+    }
+
     set({
       pendingPlacements: newPending,
       myTiles: newTiles,
-      selectedTile: Math.min(selectedTile, newTiles.length - 1),
+      selectedTile: nextSelected,
     });
   },
 
@@ -213,8 +229,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   dropOnBoard: (row, col, tileIndex) => {
-    set({ selectedTile: tileIndex });
-    get().placeOnBoard(row, col);
+    get().placeOnBoard(row, col, tileIndex);
   },
 
   sendChat: (message) => {
