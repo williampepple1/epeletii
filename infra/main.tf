@@ -105,3 +105,8 @@ resource "aws_iam_instance_profile" "ecr_pull" {
   name = "epeletii-ecr-pull"
   role = aws_iam_role.ec2_ecr.name
 }
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.ec2_ecr.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}

@@ -1,17 +1,10 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useGameStore } from "../store/gameStore";
 
 export const LeaderboardModal: React.FC = () => {
   const leaderboard = useGameStore((s) => s.leaderboard);
   const leaderboardOpen = useGameStore((s) => s.leaderboardOpen);
   const setLeaderboardOpen = useGameStore((s) => s.setLeaderboardOpen);
-  const getLeaderboard = useGameStore((s) => s.getLeaderboard);
-
-  useEffect(() => {
-    if (leaderboardOpen) {
-      getLeaderboard();
-    }
-  }, [leaderboardOpen, getLeaderboard]);
 
   if (!leaderboardOpen) return null;
 
