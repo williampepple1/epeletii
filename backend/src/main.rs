@@ -287,6 +287,12 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                         p.rack.iter().map(|t| t.letter.clone()).collect();
                                     room.send_to(&p.id, &ServerMessage::YourTiles { tiles });
                                 }
+                                // Tell the first player it's their turn
+                                let first_idx = room.game.current_player_index();
+                                room.send_to(
+                                    &room.game.players[first_idx].id,
+                                    &ServerMessage::YourTurn,
+                                );
                                 log::info!("Game started in room {}", rid);
                             }
                         }
