@@ -319,6 +319,21 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
 
                         match room.game.place_tiles(&tuples) {
                             Ok((words, score)) => {
+                                // If the play used 7 tiles, broadcast a BINGO chat message
+                                if tuples.len() == 7 {
+                                    let player_name = room
+                                        .game
+                                        .players
+                                        .iter()
+                                        .find(|p| p.id == *pid)
+                                        .map(|p| p.name.clone())
+                                        .unwrap_or_else(|| "Someone".to_string());
+                                    room.broadcast(&ServerMessage::Chat {
+                                        player_id: "system".to_string(),
+                                        player_name: "System".to_string(),
+                                        message: format!("🎉 BINGO! {} played all 7 tiles and gets a +50 point bonus!", player_name),
+                                    });
+                                }
                                 room.broadcast(&ServerMessage::MoveMade {
                                     player_id: pid.clone(),
                                     placements,
@@ -332,7 +347,7 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     room.broadcast(&ServerMessage::GameOver {
                                         winner,
                                         final_scores: scores,
-                                        reason: "Player used all tiles".to_string(),
+                                        reason: "Player used all tiles (final scores adjusted for remaining tiles)".to_string(),
                                     });
                                 } else {
                                     room.game.next_turn();

@@ -258,12 +258,11 @@ impl Game {
         }
 
         // Add score to player
-        self.players[player_idx].score += score;
-
-        // Bonus for using all 7 tiles
-        if self.players[player_idx].rack.is_empty() {
-            self.players[player_idx].score += 50;
+        let mut final_score = score;
+        if placements.len() == 7 {
+            final_score += 50;
         }
+        self.players[player_idx].score += final_score;
 
         // Draw replacement tiles
         let drawn = self.draw_tiles(placements.len());
@@ -272,7 +271,7 @@ impl Game {
         // Reset consecutive passes
         self.consecutive_passes = 0;
 
-        Ok((words, score))
+        Ok((words, final_score))
     }
 
     /// Remove specific tiles from a player's rack.
@@ -598,13 +597,28 @@ impl Game {
     pub fn pass_turn(&mut self) {
         self.consecutive_passes += 1;
         if self.consecutive_passes >= self.players.len() as u32 {
-            self.end_game(None, "All players passed".to_string());
+            // Apply standard Scrabble end-game adjustments for consecutive passes
+            // (subtract remaining tile values from each player's score)
+            for i in 0..self.players.len() {
+                let rack_value: u32 = self.players[i].rack.iter().map(|t| t.value as u32).sum();
+                self.players[i].score = self.players[i].score.saturating_sub(rack_value);
+            }
+            // Recalculate winner based on adjusted scores
+            let winner = self
+                .players
+                .iter()
+                .max_by_key(|p| p.score)
+                .map(|p| p.id.clone());
+            self.end_game(winner, "All players passed".to_string());
         }
         self.next_turn();
     }
 
     /// Exchange tiles from current player's rack.
     pub fn exchange_tiles(&mut self, letters: &[String]) -> Result<(), String> {
+        if self.tile_bag.len() < 7 {
+            return Err("Cannot exchange tiles when there are fewer than 7 tiles in the bag".to_string());
+        }
         let player_idx = self.current_player_index();
 
         let mut exchanged = Vec::new();
@@ -637,8 +651,22 @@ impl Game {
 
     /// Check if the game should end.
     pub fn check_game_end(&mut self) -> bool {
-        let player = &self.players[self.current_player_index()];
-        if player.rack.is_empty() && self.tile_bag.is_empty() {
+        let finished_player_idx = self.players.iter().position(|p| p.rack.is_empty() && self.tile_bag.is_empty());
+
+        if let Some(idx) = finished_player_idx {
+            // Apply standard Scrabble end-game adjustments for empty rack:
+            // 1. Subtract the remaining tile values from each player's score.
+            // 2. Add the sum of those subtracted values to the player who finished.
+            let mut other_sum = 0;
+            for i in 0..self.players.len() {
+                if i != idx {
+                    let rack_value: u32 = self.players[i].rack.iter().map(|t| t.value as u32).sum();
+                    self.players[i].score = self.players[i].score.saturating_sub(rack_value);
+                    other_sum += rack_value;
+                }
+            }
+            self.players[idx].score += other_sum;
+
             let winner = self
                 .players
                 .iter()

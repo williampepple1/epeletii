@@ -11,6 +11,7 @@ export function Scoreboard() {
   const gameOver = useGameStore((s) => s.gameOver);
   const winner = useGameStore((s) => s.winner);
   const gameOverReason = useGameStore((s) => s.gameOverReason);
+  const tilesRemaining = useGameStore((s) => s.tilesRemaining);
 
   if (!gameStarted) return null;
 
@@ -58,6 +59,13 @@ export function Scoreboard() {
             </div>
           );
         })}
+      </div>
+
+      <div className="pt-2 border-t border-stone-200 dark:border-stone-750 flex items-center justify-between text-xs text-stone-500 dark:text-stone-400">
+        <span>Tiles in bag:</span>
+        <span className="font-semibold px-2.5 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+          {tilesRemaining}
+        </span>
       </div>
     </div>
   );
