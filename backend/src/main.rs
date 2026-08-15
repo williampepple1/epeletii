@@ -9,12 +9,14 @@ mod auth;
 mod board;
 mod dictionary;
 mod game;
+mod persistence;
 mod protocol;
 mod room;
 mod tiles;
 
 use crate::auth::AuthService;
 use crate::dictionary::Dictionary;
+use crate::persistence::{GameStore, snapshot_to_game};
 use crate::protocol::{ClientMessage, ServerMessage};
 use crate::room::RoomManager;
 
@@ -29,6 +31,7 @@ use tokio_tungstenite::tungstenite::Message;
 struct AppState {
     rooms: Mutex<RoomManager>,
     auth: AuthService,
+    game_store: GameStore,
 }
 
 #[tokio::main]
@@ -46,9 +49,27 @@ async fn main() {
         .expect("Failed to connect to MongoDB");
     log::info!("Connected to MongoDB at {}", mongo_uri);
 
+    let game_store = GameStore::new(&mongo_uri, "epeletii")
+        .await
+        .expect("Failed to connect GameStore to MongoDB");
+
+    // Restore all active games from MongoDB on startup
+    let room_manager = {
+        let mut rm = RoomManager::new();
+        let snapshots = game_store.load_all_active_games().await;
+        log::info!("Restoring {} active game(s) from MongoDB", snapshots.len());
+        for snap in snapshots {
+            let game = snapshot_to_game(&snap, Dictionary::load());
+            rm.restore_room(snap.room_id.clone(), game);
+            log::info!("Restored room {}", snap.room_id);
+        }
+        rm
+    };
+
     let state = Arc::new(AppState {
-        rooms: Mutex::new(RoomManager::new()),
+        rooms: Mutex::new(room_manager),
         auth,
+        game_store,
     });
 
     let listener = TcpListener::bind(addr).await.expect("Failed to bind");
@@ -303,6 +324,8 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     &ServerMessage::YourTurn,
                                 );
                                 log::info!("Game started in room {}", rid);
+                                // Persist initial game state
+                                state.game_store.save_game(rid, &room.game).await;
                             }
                         }
                     }
@@ -362,6 +385,9 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                         }
                                     }
 
+                                    // Remove persisted game — it's over
+                                    state.game_store.delete_game(rid).await;
+
                                     room.broadcast(&ServerMessage::GameOver {
                                         winner,
                                         final_scores: scores,
@@ -369,6 +395,8 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     });
                                 } else {
                                     room.game.next_turn();
+                                    // Persist after every successful move
+                                    state.game_store.save_game(rid, &room.game).await;
                                     let scores: Vec<u32> =
                                         room.game.players.iter().map(|p| p.score).collect();
                                     let board = room.board_squares();
@@ -466,12 +494,17 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                 }
                             }
 
+                            // Remove persisted game — it's over
+                            state.game_store.delete_game(rid).await;
+
                             room.broadcast(&ServerMessage::GameOver {
                                 winner,
                                 final_scores: scores,
                                 reason: "All players passed consecutively".to_string(),
                             });
                         } else {
+                            // Persist after pass
+                            state.game_store.save_game(rid, &room.game).await;
                             let next = room.game.current_player_index();
                             let ntiles: Vec<String> = room.game.players[next]
                                 .rack
@@ -515,6 +548,8 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     player_id: pid.clone(),
                                     count: letters.len(),
                                 });
+                                // Persist after tile exchange
+                                state.game_store.save_game(rid, &room.game).await;
                             }
                             Err(e) => {
                                 room.send_to(pid, &ServerMessage::Error {
@@ -594,6 +629,9 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                 }
                             }
 
+                            // Remove persisted game — it's over
+                            state.game_store.delete_game(rid).await;
+
                             let scores: Vec<u32> =
                                 room.game.players.iter().map(|p| p.score).collect();
                             
@@ -628,12 +666,27 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
             }
 
             ClientMessage::RejoinRoom { room_id, player_id } => {
+                // First check if room is in memory; if not, try to restore from MongoDB
+                {
+                    let rooms = state.rooms.lock().await;
+                    if rooms.get_room(&room_id).is_none() {
+                        drop(rooms);
+                        // Try to load from MongoDB
+                        if let Some(snap) = state.game_store.load_game(&room_id).await {
+                            let game = snapshot_to_game(&snap, Dictionary::load());
+                            let mut rooms = state.rooms.lock().await;
+                            rooms.restore_room(room_id.clone(), game);
+                            log::info!("Restored room {} from MongoDB for rejoin", room_id);
+                        }
+                    }
+                }
+
                 let mut rooms = state.rooms.lock().await;
                 if let Some(room) = rooms.get_room_mut(&room_id) {
                     if room.game.players.iter().any(|p| p.id == player_id) {
                         log::info!("Player {} rejoining room {} [from {}]", player_id, room_id, peer);
                         room.register_sender(&player_id, tx.clone());
-                        
+
                         my_player_id = Some(player_id.clone());
                         my_room_id = Some(room_id.clone());
 

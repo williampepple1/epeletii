@@ -138,4 +138,16 @@ impl RoomManager {
     pub fn remove_room(&mut self, id: &str) {
         self.rooms.remove(id);
     }
+
+    /// Restore a previously persisted game room (e.g., loaded from MongoDB on startup).
+    pub fn restore_room(&mut self, room_id: String, game: crate::game::Game) {
+        let room = Room {
+            id: room_id.clone(),
+            name: format!("Restored Room {}", &room_id[..8.min(room_id.len())]),
+            game,
+            senders: std::collections::HashMap::new(),
+            max_players: 4,
+        };
+        self.rooms.insert(room_id, room);
+    }
 }
