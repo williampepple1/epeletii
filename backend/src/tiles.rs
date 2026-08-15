@@ -21,25 +21,19 @@ pub struct TileBag {
 /// Build the standard Ibani Scrabble tile distribution.
 ///
 /// Letters and their frequencies derived from corpus analysis.
-/// Under-dotted letters (ẹ, ị, ọ, ụ, ḅ) are treated as distinct tiles.
 /// Tone marks are NOT separate tiles — they're diacritics on base vowels.
 /// A blank/wild tile is included (2 tiles).
 pub fn standard_tile_bag() -> Vec<Tile> {
     // Distribution: letter -> (count, points)
     // Frequencies normalized from ~900K character corpus.
-    // Rare/high-value = more points.
+    // Underdotted letters are merged with plain base letters for ease of play.
     let dist: Vec<(&str, u32, u8)> = vec![
-        // Vowels (high frequency)
+        // Vowels
         ("a", 12, 1),
-        ("i", 10, 1),
-        ("e", 8, 1),
-        ("o", 8, 1),
-        ("u", 6, 1),
-        // Under-dotted vowels (distinct Ibani phonemes)
-        ("ị", 10, 2),
-        ("ẹ", 8, 2),
-        ("ọ", 8, 2),
-        ("ụ", 6, 3),
+        ("i", 20, 1), // merged i (10) + ị (10)
+        ("e", 16, 1), // merged e (8) + ẹ (8)
+        ("o", 16, 1), // merged o (8) + ọ (8)
+        ("u", 12, 1), // merged u (6) + ụ (6)
         // Common consonants
         ("n", 10, 1),
         ("m", 9, 1),
@@ -47,7 +41,7 @@ pub fn standard_tile_bag() -> Vec<Tile> {
         ("g", 6, 2),
         ("s", 6, 2),
         ("p", 6, 2),
-        ("b", 5, 2),
+        ("b", 10, 2), // merged b (5) + ḅ (5)
         ("h", 5, 2),
         ("k", 5, 2),
         ("d", 4, 3),
@@ -56,8 +50,6 @@ pub fn standard_tile_bag() -> Vec<Tile> {
         ("y", 4, 3),
         ("l", 3, 4),
         ("f", 3, 4),
-        // Under-dotted consonant
-        ("ḅ", 5, 3),
         // Less common consonants
         ("j", 2, 6),
         ("z", 2, 6),
@@ -102,8 +94,8 @@ mod tests {
     fn test_letter_points_consistency() {
         let pts = letter_points();
         assert_eq!(*pts.get("a").unwrap(), 1);
-        assert_eq!(*pts.get("ị").unwrap(), 2);
-        assert_eq!(*pts.get("ḅ").unwrap(), 3);
+        assert_eq!(*pts.get("i").unwrap(), 1);
+        assert_eq!(*pts.get("b").unwrap(), 2);
         assert_eq!(*pts.get(" ").unwrap(), 0);
     }
 }

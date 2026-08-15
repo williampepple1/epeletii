@@ -20,12 +20,13 @@ pub fn strip_tones(s: &str) -> String {
     let lower = s.to_lowercase();
     lower.chars().map(|c| match c {
         'á' | 'ā' | 'à' | 'â' | 'ǎ' => 'a',
-        'é' | 'ē' | 'è' | 'ê' | 'ě' | 'ë' => 'e',
-        'í' | 'ī' | 'ì' | 'î' | 'ǐ' => 'i',
-        'ó' | 'ō' | 'ò' | 'ô' | 'ǒ' => 'o',
-        'ú' | 'ū' | 'ù' | 'û' | 'ǔ' => 'u',
+        'é' | 'ē' | 'è' | 'ê' | 'ě' | 'ë' | 'ẹ' => 'e', // ẹ -> e
+        'í' | 'ī' | 'ì' | 'î' | 'ǐ' | 'ị' => 'i', // ị -> i
+        'ó' | 'ō' | 'ò' | 'ô' | 'ǒ' | 'ọ' => 'o', // ọ -> o
+        'ú' | 'ū' | 'ù' | 'û' | 'ǔ' | 'ụ' => 'u', // ụ -> u
         'ń' => 'n',
-        '\u{0301}' | '\u{0304}' | '\u{0300}' | '\u{030c}' | '\u{0302}' => '\0', // combining accents
+        'ḅ' => 'b', // ḅ -> b
+        '\u{0301}' | '\u{0304}' | '\u{0300}' | '\u{030c}' | '\u{0302}' | '\u{0323}' => '\0', // combining accents and underdot
         other => other
     }).filter(|&c| c != '\0').collect()
 }
@@ -166,7 +167,8 @@ mod tests {
         assert_eq!(strip_tones("ábá"), "aba");
         assert_eq!(strip_tones("áa"), "aa");
         assert_eq!(strip_tones("abaji"), "abaji");
-        assert_eq!(strip_tones("ẹ́mẹ́"), "ẹmẹ");
-        assert_eq!(strip_tones("bḅ"), "bḅ");
+        assert_eq!(strip_tones("ẹ́mẹ́"), "eme");
+        assert_eq!(strip_tones("bḅ"), "bb");
+        assert_eq!(strip_tones("ịḅani"), "ibani");
     }
 }
