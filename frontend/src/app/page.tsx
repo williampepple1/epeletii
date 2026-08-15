@@ -51,7 +51,7 @@ export default function Home() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-stone-800">⚕ Epeletii</h1>
+            <h1 className="text-3xl font-bold text-stone-800">🦛 Epeletii</h1>
             <p className="text-stone-500 text-sm">Ibani Scrabble</p>
           </div>
           <div className="flex items-center gap-3">

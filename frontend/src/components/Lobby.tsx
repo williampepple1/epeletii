@@ -24,7 +24,7 @@ export function Lobby() {
   return (
     <div className="max-w-md mx-auto bg-[var(--surface)] rounded-xl shadow-lg p-6 space-y-4">
       <h2 className="text-2xl font-bold text-center text-[var(--foreground)]">
-        ⚕ Epeletii
+        🦛 Epeletii
       </h2>
       <p className="text-center text-[var(--muted)] text-sm">
         Multiplayer Ibani Scrabble
