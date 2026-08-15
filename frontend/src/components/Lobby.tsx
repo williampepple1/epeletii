@@ -24,11 +24,9 @@ export function Lobby() {
   return (
     <div className="max-w-md mx-auto bg-[var(--surface)] rounded-xl shadow-lg p-6 space-y-4">
       <div className="flex justify-center mb-2">
-        <img
-          src="/logo.jpg"
-          alt="Epeletii Logo"
-          className="w-24 h-24 rounded-2xl object-cover shadow-md border-2 border-amber-500/20"
-        />
+        <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border-2 border-amber-500/20 flex items-center justify-center text-4xl shadow-sm">
+          🦛
+        </div>
       </div>
       <h2 className="text-2xl font-bold text-center text-[var(--foreground)]">
         🦛 Epeletii
