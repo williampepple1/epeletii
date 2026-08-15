@@ -187,6 +187,7 @@ export function GameBoard() {
               const pending = isPending(ri, ci);
               const pt = pendingTile(ri, ci);
               const canPlace = !occupied && !pending && hasSelectedTile && yourTurn;
+              const canDrop = !occupied && !pending && yourTurn; // drag: index from dataTransfer, no selection needed
               const canUndo = pending && yourTurn;
               const isCursor = cursor?.row === ri && cursor?.col === ci;
 
@@ -219,11 +220,11 @@ export function GameBoard() {
                     if (canUndo) { removePendingPlacement(ri, ci); sounds.tileReturn(); return; }
                     if (canPlace) { placeOnBoard(ri, ci); sounds.tilePlace(); }
                   }}
-                  onDragOver={(e) => { if (canPlace) e.preventDefault(); }}
+                  onDragOver={(e) => { if (canDrop) e.preventDefault(); }}
                   onDrop={(e) => {
                     e.preventDefault();
                     const data = e.dataTransfer.getData("text/plain");
-                    if (data && canPlace) {
+                    if (data && canDrop) {
                       const idx = parseInt(data, 10);
                       if (!isNaN(idx)) {
                         dropOnBoard(ri, ci, idx);
