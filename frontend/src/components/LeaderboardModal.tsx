@@ -30,7 +30,7 @@ export const LeaderboardModal: React.FC = () => {
             <p className="text-center text-stone-550 py-8">No stats recorded yet. Play a game to rank up!</p>
           ) : (
             <div className="min-w-full inline-block align-middle">
-              <div className="overflow-hidden border border-stone-200 dark:border-stone-800 rounded-xl">
+              <div className="overflow-x-auto border border-stone-200 dark:border-stone-800 rounded-xl">
                 <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-800">
                   <thead className="bg-stone-50 dark:bg-stone-850">
                     <tr>

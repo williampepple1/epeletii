@@ -38,7 +38,7 @@ export function ChatPanel() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-20 right-4 z-40 w-80 h-96 bg-white dark:bg-stone-800 rounded-xl shadow-2xl border border-stone-200 dark:border-stone-700 flex flex-col overflow-hidden">
+        <div className="fixed bottom-20 right-4 z-40 w-[calc(100vw-32px)] sm:w-80 h-96 bg-white dark:bg-stone-800 rounded-xl shadow-2xl border border-stone-200 dark:border-stone-700 flex flex-col overflow-hidden">
           <div className="px-4 py-2 bg-stone-100 dark:bg-stone-700 border-b border-stone-200 dark:border-stone-600">
             <p className="text-sm font-semibold text-stone-700 dark:text-stone-200">Chat</p>
           </div>

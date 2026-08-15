@@ -174,9 +174,9 @@ export function GameBoard() {
         </p>
       )}
       
-      <div className="inline-block bg-[#8b5a2b] dark:bg-[#3d251c] p-2 sm:p-3 rounded-2xl shadow-2xl border-4 border-[#5c3e21] dark:border-[#2b1912]">
+      <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[500px] bg-[#8b5a2b] dark:bg-[#3d251c] p-1.5 sm:p-3 rounded-2xl shadow-2xl border-4 border-[#5c3e21] dark:border-[#2b1912]">
         <div
-          className="grid gap-0.5 sm:gap-1 bg-[#5c3e21] dark:bg-[#2b1912]"
+          className="grid gap-[2px] sm:gap-[4px] bg-[#5c3e21] dark:bg-[#2b1912] w-full aspect-square"
           style={{ gridTemplateColumns: `repeat(${board.length}, minmax(0, 1fr))` }}
         >
           {board.map((row, ri) =>
@@ -192,7 +192,7 @@ export function GameBoard() {
               const isCursor = cursor?.row === ri && cursor?.col === ci;
 
               // Compute square classes
-              let sqClass = "w-[22px] h-[22px] xs:w-7 xs:h-7 sm:w-10 sm:h-10 flex flex-col items-center justify-center relative select-none rounded-xs sm:rounded-sm transition-all duration-100 border text-center font-sans";
+              let sqClass = "w-full h-full flex flex-col items-center justify-center relative select-none rounded-[1px] sm:rounded-sm transition-all duration-100 border border-stone-250/20 dark:border-stone-750/30 text-center font-sans aspect-square";
               
               if (occupied) {
                 sqClass += " bg-gradient-to-b from-[#fbf8f0] to-[#e5d9ba] dark:from-[#493a2a] dark:to-[#33261a] border-[#c0ab7b] dark:border-[#453424] text-stone-850 dark:text-orange-50 font-black shadow-md cursor-default";
@@ -238,23 +238,23 @@ export function GameBoard() {
                 >
                   {occupied ? (
                     <>
-                      <span className="text-xs xs:text-sm sm:text-base font-black leading-none drop-shadow-xs">{sq.tile}</span>
-                      <span className="absolute bottom-[1px] right-0.5 sm:right-1 text-[7px] sm:text-[9px] font-bold text-stone-500 dark:text-stone-400 leading-none">
+                      <span className="text-[3vw] sm:text-base font-black leading-none drop-shadow-xs">{sq.tile}</span>
+                      <span className="absolute bottom-[1px] right-0.5 sm:right-1 text-[1.8vw] sm:text-[9px] font-bold text-stone-500 dark:text-stone-400 leading-none">
                         {TILE_VALUE[sq.tile?.toLowerCase() || ""] !== undefined ? TILE_VALUE[sq.tile?.toLowerCase() || ""] : ""}
                       </span>
                     </>
                   ) : pending ? (
                     <>
-                      <span className="text-xs xs:text-sm sm:text-base font-black leading-none drop-shadow-xs">{pt?.letter}</span>
-                      <span className="absolute bottom-[1px] right-0.5 sm:right-1 text-[7px] sm:text-[9px] font-bold text-stone-600 dark:text-stone-300 leading-none">
+                      <span className="text-[3vw] sm:text-base font-black leading-none drop-shadow-xs">{pt?.letter}</span>
+                      <span className="absolute bottom-[1px] right-0.5 sm:right-1 text-[1.8vw] sm:text-[9px] font-bold text-stone-600 dark:text-stone-300 leading-none">
                         {TILE_VALUE[pt?.letter?.toLowerCase() || ""] !== undefined ? TILE_VALUE[pt?.letter?.toLowerCase() || ""] : ""}
                       </span>
                     </>
                   ) : (
                     <>
-                      <span className="font-extrabold uppercase text-[7px] sm:text-[9px] tracking-tight">{label}</span>
+                      <span className="font-extrabold uppercase text-[1.8vw] sm:text-[9px] tracking-tight">{label}</span>
                       {ri === 7 && ci === 7 && (
-                        <span className="text-[10px] sm:text-xs leading-none mt-0.5 animate-pulse text-amber-500">★</span>
+                        <span className="text-[2.5vw] sm:text-xs leading-none mt-0.5 animate-pulse text-amber-500">★</span>
                       )}
                     </>
                   )}

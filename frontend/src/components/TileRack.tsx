@@ -80,7 +80,7 @@ export function TileRack() {
       )}
 
       {/* Tile rack */}
-      <div className="flex gap-2 items-center flex-wrap justify-center p-3.5 bg-[#d2b48c] dark:bg-[#5c4033] rounded-xl border-b-8 border-[#8b5a2b] dark:border-[#3d251c] shadow-2xl relative">
+      <div className="flex gap-1 sm:gap-2 items-center justify-center p-2.5 sm:p-3.5 bg-[#d2b48c] dark:bg-[#5c4033] rounded-xl border-b-8 border-[#8b5a2b] dark:border-[#3d251c] shadow-2xl relative w-full">
         {/* Subtle wood sheen highlight */}
         <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/10 pointer-events-none rounded-xl" />
         
@@ -91,7 +91,7 @@ export function TileRack() {
           const isUnderdotted = ["ị", "ẹ", "ọ", "ụ", "ḅ"].includes(tile);
 
           // Build premium tile class
-          let tileClass = "w-12 h-14 relative flex flex-col items-center justify-center rounded-lg shadow-md border font-sans select-none transition-all duration-150 active:scale-95";
+          let tileClass = "w-10 h-12 sm:w-12 sm:h-14 relative flex flex-col items-center justify-center rounded-lg shadow-md border font-sans select-none transition-all duration-150 active:scale-95";
           
           if (isSelected) {
             tileClass += " ring-3 ring-amber-500 dark:ring-amber-400 shadow-xl -translate-y-2 scale-105";
@@ -142,10 +142,10 @@ export function TileRack() {
               }}
               className={tileClass}
             >
-              <span className={`text-2xl font-black leading-none ${isBlank ? "text-stone-400/80 dark:text-stone-600 italic" : "text-stone-850 dark:text-orange-50 drop-shadow-xs"}`}>
+              <span className={`text-xl sm:text-2xl font-black leading-none ${isBlank ? "text-stone-400/80 dark:text-stone-600 italic" : "text-stone-850 dark:text-orange-50 drop-shadow-xs"}`}>
                 {isBlank ? "?" : tile}
               </span>
-              <span className="absolute bottom-1 right-1.5 text-[10px] font-bold text-stone-500 dark:text-stone-400 leading-none">
+              <span className="absolute bottom-1 right-1.5 text-[8px] sm:text-[10px] font-bold text-stone-500 dark:text-stone-400 leading-none">
                 {TILE_VALUE[tile] !== undefined && TILE_VALUE[tile] > 0 ? TILE_VALUE[tile] : ""}
               </span>
               {isMarked && (
