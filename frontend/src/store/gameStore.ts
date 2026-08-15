@@ -66,6 +66,7 @@ interface GameState {
   ready: () => void;
   placeTiles: () => void;
   passTurn: () => void;
+  resign: () => void;
   exchangeTiles: (letters: string[]) => void;
   selectTile: (index: number | null) => void;
   placeOnBoard: (row: number, col: number, tileIndex?: number) => void;
@@ -185,6 +186,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   passTurn: () => {
     gameSocket.send({ type: "PassTurn" });
+  },
+
+  resign: () => {
+    gameSocket.send({ type: "Resign" });
   },
 
   exchangeTiles: (letters) => {

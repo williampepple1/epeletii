@@ -12,6 +12,7 @@ export function Scoreboard() {
   const winner = useGameStore((s) => s.winner);
   const gameOverReason = useGameStore((s) => s.gameOverReason);
   const tilesRemaining = useGameStore((s) => s.tilesRemaining);
+  const resign = useGameStore((s) => s.resign);
 
   if (!gameStarted) return null;
 
@@ -67,6 +68,20 @@ export function Scoreboard() {
           {tilesRemaining}
         </span>
       </div>
+
+      {!gameOver && (
+        <button
+          onClick={() => {
+            if (confirm("Are you sure you want to resign? Your score will be reset to 0 and all your points will be transferred to your opponent(s).")) {
+              resign();
+            }
+          }}
+          className="w-full py-1.5 text-xs border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400
+                     rounded-lg font-semibold hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+        >
+          🏳️ Resign Game
+        </button>
+      )}
     </div>
   );
 }

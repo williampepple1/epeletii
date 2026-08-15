@@ -523,15 +523,51 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 if let (Some(ref pid), Some(ref rid)) = (&my_player_id, &my_room_id) {
                     let mut rooms = state.rooms.lock().await;
                     if let Some(room) = rooms.get_room_mut(rid) {
-                        room.game
-                            .end_game(None, format!("Player {} resigned", pid));
-                        let scores: Vec<u32> =
-                            room.game.players.iter().map(|p| p.score).collect();
-                        room.broadcast(&ServerMessage::GameOver {
-                            winner: None,
-                            final_scores: scores,
-                            reason: "A player resigned".to_string(),
-                        });
+                        let resigning_player_idx = room.game.players.iter().position(|p| p.id == *pid);
+                        if let Some(idx) = resigning_player_idx {
+                            let resigning_score = room.game.players[idx].score;
+                            let resigning_name = room.game.players[idx].name.clone();
+                            
+                            // Set resigning player's score to 0
+                            room.game.players[idx].score = 0;
+
+                            // Add their score to opponent(s)
+                            let opponent_count = room.game.players.len() - 1;
+                            let mut winner_label = "Opponent".to_string();
+                            if opponent_count > 0 {
+                                let share = resigning_score / opponent_count as u32;
+                                for i in 0..room.game.players.len() {
+                                    if i != idx {
+                                        room.game.players[i].score += share;
+                                    }
+                                }
+                            }
+
+                            // The winner is the player with the highest score (not the resigning one)
+                            let winner = room.game.players
+                                .iter()
+                                .enumerate()
+                                .filter(|(i, _)| *i != idx)
+                                .max_by_key(|(_, p)| p.score)
+                                .map(|(_, p)| p.id.clone());
+
+                            if let Some(ref wid) = winner {
+                                if let Some(p) = room.game.players.iter().find(|p| p.id == *wid) {
+                                    winner_label = p.name.clone();
+                                }
+                            }
+
+                            room.game.end_game(winner.clone(), format!("{} resigned", resigning_name));
+
+                            let scores: Vec<u32> =
+                                room.game.players.iter().map(|p| p.score).collect();
+                            
+                            room.broadcast(&ServerMessage::GameOver {
+                                winner,
+                                final_scores: scores,
+                                reason: format!("{} resigned. Their points were transferred to {}!", resigning_name, winner_label),
+                            });
+                        }
                     }
                 }
             }
