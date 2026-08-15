@@ -171,4 +171,17 @@ mod tests {
         assert_eq!(strip_tones("bḅ"), "bb");
         assert_eq!(strip_tones("ịḅani"), "ibani");
     }
+
+    #[test]
+    fn test_real_dictionary_lookup() {
+        let dict = Dictionary::load();
+        assert!(dict.size() > 0, "Dictionary should load successfully");
+        assert!(dict.is_valid_word("bo"), "bo should be a valid word");
+        assert!(dict.is_valid_word("ibani"), "ibani should be a valid word");
+        
+        let defs = dict.lookup("bo").unwrap();
+        assert!(!defs.is_empty(), "bo should have definitions");
+        let original_words: Vec<&str> = defs.iter().map(|d| d.word.as_str()).collect();
+        assert!(original_words.contains(&"bọ́"), "bọ́ should be in original words list");
+    }
 }

@@ -211,6 +211,28 @@ impl Game {
         // Calculate score
         let (words, score) = self.calculate_score(placements, direction);
 
+        // If no valid words of length 2 or more were formed, reject
+        if words.is_empty() {
+            // Undo: remove placed tiles from board
+            for (row, col, _) in placements {
+                self.board.squares[*row][*col].tile = None;
+                self.board.squares[*row][*col].owner = None;
+            }
+            // Return tiles to player's rack
+            for (_, _, letter) in placements {
+                self.players[player_idx].rack.push(crate::tiles::Tile {
+                    letter: letter.clone(),
+                    value: 0,
+                });
+            }
+            // Update letter points
+            let pts = crate::tiles::letter_points();
+            for t in &mut self.players[player_idx].rack {
+                t.value = *pts.get(&t.letter).unwrap_or(&1);
+            }
+            return Err("No valid words of length 2 or more were formed.".to_string());
+        }
+
         // Validate all formed words against the dictionary
         let words_valid = words.iter().all(|w| self.dictionary.is_valid_word(w));
         if !words_valid {
@@ -384,10 +406,12 @@ impl Game {
             direction,
             Some(&placed_set),
         );
-        let main_score = self.score_word(&main_word, &placed_set, direction, &points);
-        total_score += main_score.score;
-        word_mult = word_mult.max(main_score.word_mult);
-        all_words.push(main_word);
+        if main_word.len() > 1 {
+            let main_score = self.score_word(&main_word, &placed_set, direction, &points);
+            total_score += main_score.score;
+            word_mult = word_mult.max(main_score.word_mult);
+            all_words.push(main_word);
+        }
 
         // Cross words
         let cross_dir = match direction {
@@ -671,5 +695,45 @@ mod tests {
         game.deal_tiles();
         assert_eq!(game.players[0].rack.len(), 7);
         assert_eq!(game.players[1].rack.len(), 7);
+    }
+
+    #[test]
+    fn test_single_tile_placement() {
+        let mut game = make_game();
+        game.add_player("p1".into(), "Alice".into());
+        game.add_player("p2".into(), "Bob".into());
+        let _ = game.start(0);
+
+        // Let's manually place 'a', 'b', 'a' horizontally across center star (7,7)
+        // first player turn
+        game.players[0].rack = vec![
+            crate::tiles::Tile { letter: "a".to_string(), value: 1 },
+            crate::tiles::Tile { letter: "b".to_string(), value: 2 },
+            crate::tiles::Tile { letter: "a".to_string(), value: 1 },
+        ];
+        
+        let placements1 = vec![
+            (7, 6, "a".to_string()),
+            (7, 7, "b".to_string()),
+            (7, 8, "a".to_string()),
+        ];
+        let res = game.place_tiles(&placements1);
+        assert!(res.is_ok(), "First move of 'aba' should succeed: {:?}", res);
+
+        // Switch turn to Bob
+        game.next_turn();
+
+        // Bob places a single letter 'o' under 'b' at (7,7) -> forms 'bo' at (8,7)
+        game.players[1].rack = vec![
+            crate::tiles::Tile { letter: "o".to_string(), value: 1 },
+        ];
+        let placements2 = vec![
+            (8, 7, "o".to_string()),
+        ];
+        let res2 = game.place_tiles(&placements2);
+        assert!(res2.is_ok(), "Single tile move under 'b' forming 'bo' should succeed: {:?}", res2);
+        let (words, score) = res2.unwrap();
+        assert_eq!(words, vec!["bo".to_string()]);
+        assert!(score > 0);
     }
 }
