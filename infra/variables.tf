@@ -13,7 +13,7 @@ variable "aws_profile" {
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
-  default     = "t3a.nano"
+  default     = "t3.micro"
 }
 
 variable "ssh_allowed_cidrs" {
@@ -32,6 +32,7 @@ variable "mongo_uri" {
   description = "MongoDB connection string"
   type        = string
   sensitive   = true
+  default     = "mongodb://epeletii-mongo:27017/epeletii"
 }
 
 variable "jwt_secret" {

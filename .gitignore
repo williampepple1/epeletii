@@ -20,3 +20,5 @@ Thumbs.db
 .env.local
 infra/terraform.tfvars
 infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup

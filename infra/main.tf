@@ -26,6 +26,14 @@ resource "aws_security_group" "game_server" {
   }
 
   ingress {
+    description = "Nginx HTTP reverse proxy"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     description = "SSH from your IP"
     from_port   = 22
     to_port     = 22
@@ -51,7 +59,7 @@ resource "aws_eip" "game_server" {
 
 # EC2 instance (x86 — no cross-compilation needed)
 resource "aws_instance" "game_server" {
-  ami                    = data.aws_ami.ubuntu_amd64.id
+  ami                    = "ami-075d460850002adb0"
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.game_server.id]
 
@@ -96,20 +104,4 @@ resource "aws_iam_role" "ec2_ecr" {
 resource "aws_iam_instance_profile" "ecr_pull" {
   name = "epeletii-ecr-pull"
   role = aws_iam_role.ec2_ecr.name
-}
-
-# AMI lookup
-data "aws_ami" "ubuntu_amd64" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-24.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
 }

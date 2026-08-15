@@ -15,6 +15,33 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Epeletii — Ibani Scrabble",
   description: "Multiplayer Scrabble game for the Ibani language",
+  openGraph: {
+    title: "Epeletii — Ibani Scrabble",
+    description: "Multiplayer Scrabble game for the Ibani language",
+    url: "https://game.ibani.online",
+    siteName: "Epeletii",
+    images: [
+      {
+        url: "https://game.ibani.online/og-image.jpg",
+        width: 1200,
+        height: 1200,
+        alt: "Epeletii — Ibani Scrabble Logo",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Epeletii — Ibani Scrabble",
+    description: "Multiplayer Scrabble game for the Ibani language",
+    images: ["https://game.ibani.online/og-image.jpg"],
+  },
+  icons: {
+    icon: "/logo.jpg",
+    shortcut: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
 };
 
 export default function RootLayout({
