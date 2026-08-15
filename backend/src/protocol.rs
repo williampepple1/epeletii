@@ -48,6 +48,11 @@ pub enum ClientMessage {
     LookupWord {
         word: String,
     },
+    /// Rejoin an existing room (reconnection)
+    RejoinRoom {
+        room_id: String,
+        player_id: String,
+    },
 }
 
 /// A single tile placement.

@@ -555,6 +555,56 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                     }).unwrap());
                 }
             }
+
+            ClientMessage::RejoinRoom { room_id, player_id } => {
+                let mut rooms = state.rooms.lock().await;
+                if let Some(room) = rooms.get_room_mut(&room_id) {
+                    if room.game.players.iter().any(|p| p.id == player_id) {
+                        log::info!("Player {} rejoining room {} [from {}]", player_id, room_id, peer);
+                        room.register_sender(&player_id, tx.clone());
+                        
+                        my_player_id = Some(player_id.clone());
+                        my_room_id = Some(room_id.clone());
+
+                        // Send the current RoomState to the rejoining player
+                        let board = room.board_squares();
+                        let players = room.player_info_list();
+                        let scores = room.game.players.iter().map(|p| p.score).collect();
+                        let current_turn = room.game.current_player_index() as u8;
+                        let tiles_remaining = room.game.tiles_remaining();
+                        let game_started = matches!(room.game.phase, crate::game::GamePhase::Playing | crate::game::GamePhase::Finished);
+                        let game_over = matches!(room.game.phase, crate::game::GamePhase::Finished);
+                        let winner = room.game.winner.clone();
+
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::RoomState {
+                            room_id: room_id.clone(),
+                            players,
+                            board,
+                            scores,
+                            current_turn,
+                            tiles_remaining,
+                            game_started,
+                            game_over,
+                            winner,
+                        }).unwrap());
+
+                        // Also send their current tiles (rack)
+                        if let Some(player) = room.game.players.iter().find(|p| p.id == player_id) {
+                            let tiles = player.rack.iter().map(|t| t.letter.clone()).collect();
+                            let _ = tx.send(serde_json::to_string(&ServerMessage::YourTiles { tiles }).unwrap());
+                        }
+
+                        // If it is currently their turn, notify them!
+                        if room.game.players[room.game.current_player_index()].id == player_id {
+                            let _ = tx.send(serde_json::to_string(&ServerMessage::YourTurn).unwrap());
+                        }
+                    } else {
+                        send_err("Player not found in room");
+                    }
+                } else {
+                    send_err("Room not found");
+                }
+            }
         }
     }
 
@@ -565,8 +615,9 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
             if let Some(room) = rooms.get_room_mut(&rid) {
                 room.remove_sender(&pid);
                 if room.senders.is_empty() {
-                    rooms.remove_room(&rid);
-                    log::info!("Removed empty room {}", rid);
+                    // Do not remove room immediately to allow reconnects
+                    // rooms.remove_room(&rid);
+                    // log::info!("Removed empty room {}", rid);
                 }
             }
         }

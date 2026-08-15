@@ -33,7 +33,8 @@ export type ClientMessage =
   | { type: "PassTurn" }
   | { type: "Resign" }
   | { type: "Chat"; message: string }
-  | { type: "LookupWord"; word: string };
+  | { type: "LookupWord"; word: string }
+  | { type: "RejoinRoom"; room_id: string; player_id: string };
 
 // Server -> Client messages
 export type ServerMessage =

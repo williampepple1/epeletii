@@ -80,18 +80,23 @@ interface GameState {
   reset: () => void;
 }
 
-const BOARD_SIZE = 15;
+const isClient = typeof window !== "undefined";
+
+const getLocalStorage = (key: string): string | null => {
+  if (!isClient) return null;
+  return localStorage.getItem(key);
+};
 
 export const useGameStore = create<GameState>((set, get) => ({
   // Initial state
   connected: false,
-  playerId: null,
-  roomId: null,
-  playerName: null,
-  isLoggedIn: false,
-  authToken: null,
-  userEmail: null,
-  userDisplayName: null,
+  playerId: getLocalStorage("playerId"),
+  roomId: getLocalStorage("roomId"),
+  playerName: getLocalStorage("userDisplayName"),
+  isLoggedIn: !!getLocalStorage("authToken"),
+  authToken: getLocalStorage("authToken"),
+  userEmail: getLocalStorage("userEmail"),
+  userDisplayName: getLocalStorage("userDisplayName"),
   authLoading: false,
   authError: null,
   players: [],
@@ -127,12 +132,24 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   logOut: () => {
+    if (isClient) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userEmail");
+      localStorage.removeItem("userDisplayName");
+      localStorage.removeItem("roomId");
+      localStorage.removeItem("playerId");
+    }
     set({
       isLoggedIn: false,
       authToken: null,
       userEmail: null,
       userDisplayName: null,
       playerName: null,
+      playerId: null,
+      roomId: null,
+      gameStarted: false,
+      board: null,
+      myTiles: [],
     });
   },
 
@@ -259,9 +276,25 @@ export const useGameStore = create<GameState>((set, get) => ({
       await gameSocket.connect();
       set({ connected: true, error: null });
 
+      // Try to auto-rejoin if we have active roomId and playerId in localStorage
+      const cachedRoomId = isClient ? localStorage.getItem("roomId") : null;
+      const cachedPlayerId = isClient ? localStorage.getItem("playerId") : null;
+      if (cachedRoomId && cachedPlayerId) {
+        gameSocket.send({
+          type: "RejoinRoom",
+          room_id: cachedRoomId,
+          player_id: cachedPlayerId,
+        });
+      }
+
       // Register handlers
       gameSocket.on("AuthSuccess", (msg) => {
         if (msg.type === "AuthSuccess") {
+          if (isClient) {
+            localStorage.setItem("authToken", msg.token);
+            localStorage.setItem("userEmail", msg.email);
+            localStorage.setItem("userDisplayName", msg.display_name);
+          }
           set({
             isLoggedIn: true,
             authToken: msg.token,
@@ -282,16 +315,41 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       gameSocket.on("RoomCreated", (msg) => {
         if (msg.type === "RoomCreated") {
+          if (isClient) {
+            localStorage.setItem("roomId", msg.room_id);
+            localStorage.setItem("playerId", msg.player_id);
+          }
           set({ playerId: msg.player_id, roomId: msg.room_id, players: msg.players });
         }
       });
 
       gameSocket.on("RoomJoined", (msg) => {
         if (msg.type === "RoomJoined") {
+          if (isClient) {
+            localStorage.setItem("roomId", msg.room_id);
+            localStorage.setItem("playerId", msg.player_id);
+          }
           set({
             playerId: msg.player_id,
             roomId: msg.room_id,
             players: msg.players,
+          });
+        }
+      });
+
+      gameSocket.on("RoomState", (msg) => {
+        if (msg.type === "RoomState") {
+          set({
+            roomId: msg.room_id,
+            players: msg.players,
+            board: msg.board,
+            currentTurn: msg.current_turn,
+            tilesRemaining: msg.tiles_remaining,
+            gameStarted: msg.game_started,
+            gameOver: msg.game_over,
+            winner: msg.winner,
+            error: null,
+            drawResult: null,
           });
         }
       });
@@ -431,6 +489,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   reset: () => {
+    if (isClient) {
+      localStorage.removeItem("roomId");
+      localStorage.removeItem("playerId");
+    }
     gameSocket.disconnect();
     set({
       connected: false,
