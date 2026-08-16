@@ -13,6 +13,9 @@ export function Scoreboard() {
   const gameOverReason = useGameStore((s) => s.gameOverReason);
   const tilesRemaining = useGameStore((s) => s.tilesRemaining);
   const resign = useGameStore((s) => s.resign);
+  const reset = useGameStore((s) => s.reset);
+
+  const isSpectator = !players.some((p) => p.id === playerId);
 
   if (!gameStarted) return null;
 
@@ -70,17 +73,27 @@ export function Scoreboard() {
       </div>
 
       {!gameOver && (
-        <button
-          onClick={() => {
-            if (confirm("Are you sure you want to resign? Your score will be reset to 0 and all your points will be transferred to your opponent(s).")) {
-              resign();
-            }
-          }}
-          className="w-full py-1.5 text-xs border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400
-                     rounded-lg font-semibold hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-        >
-          🏳️ Resign Game
-        </button>
+        isSpectator ? (
+          <button
+            onClick={reset}
+            className="w-full py-1.5 text-xs border border-stone-250/20 dark:border-stone-800 text-stone-600 dark:text-stone-300
+                       rounded-lg font-semibold hover:bg-stone-50 dark:hover:bg-stone-850/50 transition-colors"
+          >
+            🚪 Leave Room
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to resign? Your score will be reset to 0 and all your points will be transferred to your opponent(s).")) {
+                resign();
+              }
+            }}
+            className="w-full py-1.5 text-xs border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400
+                       rounded-lg font-semibold hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+          >
+            🏳️ Resign Game
+          </button>
+        )
       )}
     </div>
   );
