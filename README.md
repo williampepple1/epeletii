@@ -1,4 +1,4 @@
-# ⚕ Epeletii — Multiplayer Ibani Scrabble
+# 🦛 Epeletii — Multiplayer Ibani Scrabble
 
 Ibani word for "scrabble" / "letter arrangement game".
 
@@ -45,7 +45,7 @@ epeletii/
 - 2-4 players per room
 - First move must cover center (7,7)
 - Words validated against the Ibani dictionary
-- 50-point bonus for using all 7 tiles (bingo)
+- 50-point bonus for using all 10 tiles (bingo)
 - Consecutive passes by all players ends the game
 
 ## Running
