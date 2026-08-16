@@ -7,6 +7,15 @@ export function Lobby() {
   const [nameInput, setNameInput] = useState("");
   const [joinId, setJoinId] = useState("");
   const [isReady, setIsReady] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (roomId) {
+      navigator.clipboard.writeText(roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const playerName = useGameStore((s) => s.playerName);
   const players = useGameStore((s) => s.players);
@@ -169,11 +178,23 @@ export function Lobby() {
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-sm text-amber-800 font-medium">Room Code</p>
-            <p className="text-lg font-mono font-bold text-amber-900 select-all">
-              {roomId}
-            </p>
+          <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3 flex items-center justify-between gap-3 text-left">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-amber-800 dark:text-amber-400 font-bold">Room Code</p>
+              <p className="text-lg font-mono font-black text-amber-900 dark:text-amber-200 select-all mt-0.5">
+                {roomId}
+              </p>
+            </div>
+            <button
+              onClick={handleCopy}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs shrink-0 ${
+                copied
+                  ? "bg-green-600 text-white"
+                  : "bg-amber-600 hover:bg-amber-700 text-white"
+              }`}
+            >
+              {copied ? "✓ Copied" : "📋 Copy Code"}
+            </button>
           </div>
 
           <div>

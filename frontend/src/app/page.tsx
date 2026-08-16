@@ -26,6 +26,7 @@ export default function Home() {
   const userDisplayName = useGameStore((s) => s.userDisplayName);
   const logOut = useGameStore((s) => s.logOut);
   const setLeaderboardOpen = useGameStore((s) => s.setLeaderboardOpen);
+  const error = useGameStore((s) => s.error);
   const [showDraw, setShowDraw] = useState(false);
   const [dark, setDark] = useState(false);
   const [muted, setMutedState] = useState(false);
@@ -115,6 +116,19 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* Floating Error Toast Notification */}
+        {error && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4 animate-fade-in-down">
+            <div className="bg-red-50 dark:bg-red-950/90 border border-red-200 dark:border-red-900/60 shadow-xl rounded-xl p-4 flex items-start gap-3 backdrop-blur-md">
+              <span className="text-red-500 dark:text-red-400 mt-0.5 text-lg">⚠️</span>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-bold text-red-800 dark:text-red-200">Error</p>
+                <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Draw result overlay */}
         {showDraw && drawResult && (
