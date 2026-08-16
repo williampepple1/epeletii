@@ -21,6 +21,10 @@ pub struct User {
     pub games_won: u32,
     #[serde(default)]
     pub total_score: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_token_expires: Option<i64>,
 }
 
 /// JWT claims payload.
@@ -42,6 +46,7 @@ pub struct AuthUser {
 pub struct AuthService {
     pub users: Collection<User>,
     jwt_secret: String,
+    email_service: crate::email::EmailService,
 }
 
 impl AuthService {
@@ -67,7 +72,9 @@ impl AuthService {
         let jwt_secret = std::env::var("JWT_SECRET")
             .unwrap_or_else(|_| "epeletii-dev-secret-change-in-prod".to_string());
 
-        Ok(Self { users, jwt_secret })
+        let email_service = crate::email::EmailService::new();
+
+        Ok(Self { users, jwt_secret, email_service })
     }
 
     /// Register a new user.
@@ -101,6 +108,8 @@ impl AuthService {
             games_played: 0,
             games_won: 0,
             total_score: 0,
+            reset_token: None,
+            reset_token_expires: None,
         };
 
         self.users
@@ -113,6 +122,16 @@ impl AuthService {
                     format!("Database error: {}", e)
                 }
             })?;
+
+        // Send welcome email in background
+        let email_svc = self.email_service.clone();
+        let email_to = email.clone();
+        let display_name_to = display_name.to_string();
+        tokio::spawn(async move {
+            if let Err(e) = email_svc.send_welcome_email(&email_to, &display_name_to).await {
+                log::error!("Failed to send welcome email to {}: {}", email_to, e);
+            }
+        });
 
         let token = self.create_token(&email, display_name)?;
         Ok((
@@ -212,5 +231,90 @@ impl AuthService {
             }
         }
         Ok(list)
+    }
+
+    /// Request a password reset: generate token and send email
+    pub async fn request_password_reset(&self, email: &str) -> Result<(), String> {
+        let email = email.trim().to_lowercase();
+        let _user = self
+            .users
+            .find_one(doc! { "email": &email })
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| "Email not registered".to_string())?;
+
+        let token = uuid::Uuid::new_v4().to_string();
+        let expires = Utc::now().timestamp() + 3600; // 1 hour validity
+
+        let update = doc! {
+            "$set": {
+                "reset_token": &token,
+                "reset_token_expires": expires,
+            }
+        };
+
+        self.users
+            .update_one(doc! { "email": &email }, update)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
+
+        // Send reset email in background
+        let email_svc = self.email_service.clone();
+        let email_to = email;
+        let token_to = token;
+        tokio::spawn(async move {
+            if let Err(e) = email_svc.send_reset_password_email(&email_to, &token_to).await {
+                log::error!("Failed to send password reset email to {}: {}", email_to, e);
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Reset password using token
+    pub async fn reset_password(&self, email: &str, token: &str, new_password: &str) -> Result<(), String> {
+        let email = email.trim().to_lowercase();
+        let token = token.trim();
+        if new_password.len() < 6 {
+            return Err("Password must be at least 6 characters".to_string());
+        }
+
+        let user = self
+            .users
+            .find_one(doc! { "email": &email })
+            .await
+            .map_err(|e| format!("Database error: {}", e))?
+            .ok_or_else(|| "User not found".to_string())?;
+
+        let user_token = user.reset_token.ok_or_else(|| "No reset request pending".to_string())?;
+        let expires = user.reset_token_expires.ok_or_else(|| "No reset request pending".to_string())?;
+
+        if user_token != token {
+            return Err("Invalid reset token".to_string());
+        }
+
+        if Utc::now().timestamp() > expires {
+            return Err("Reset token has expired".to_string());
+        }
+
+        let password_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)
+            .map_err(|e| format!("Failed to hash password: {}", e))?;
+
+        let update = doc! {
+            "$set": {
+                "password_hash": password_hash,
+            },
+            "$unset": {
+                "reset_token": "",
+                "reset_token_expires": "",
+            }
+        };
+
+        self.users
+            .update_one(doc! { "email": &email }, update)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
+
+        Ok(())
     }
 }

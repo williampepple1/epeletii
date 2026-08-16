@@ -19,6 +19,8 @@ interface GameState {
   userDisplayName: string | null;
   authLoading: boolean;
   authError: string | null;
+  forgotPasswordSuccess: boolean;
+  resetPasswordSuccess: boolean;
 
   // Players
   players: PlayerInfo[];
@@ -65,6 +67,10 @@ interface GameState {
   setPlayerName: (name: string) => void;
   signUp: (email: string, password: string, displayName: string) => void;
   signIn: (email: string, password: string) => void;
+  forgotPassword: (email: string) => void;
+  resetPassword: (email: string, token: string, new_password: string) => void;
+  setForgotPasswordSuccess: (success: boolean) => void;
+  setResetPasswordSuccess: (success: boolean) => void;
   logOut: () => void;
   createRoom: () => void;
   joinRoom: (roomId: string) => void;
@@ -109,6 +115,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   userDisplayName: getLocalStorage("userDisplayName"),
   authLoading: false,
   authError: null,
+  forgotPasswordSuccess: false,
+  resetPasswordSuccess: false,
   players: [],
   board: null,
   currentTurn: 0,
@@ -143,6 +151,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ authLoading: true, authError: null });
     gameSocket.send({ type: "SignIn", email, password });
   },
+
+  forgotPassword: (email) => {
+    set({ authLoading: true, authError: null, forgotPasswordSuccess: false });
+    gameSocket.send({ type: "ForgotPassword", email });
+  },
+
+  resetPassword: (email, token, new_password) => {
+    set({ authLoading: true, authError: null, resetPasswordSuccess: false });
+    gameSocket.send({ type: "ResetPassword", email, token, new_password });
+  },
+
+  setForgotPasswordSuccess: (success) => set({ forgotPasswordSuccess: success }),
+  setResetPasswordSuccess: (success) => set({ resetPasswordSuccess: success }),
 
   logOut: () => {
     if (isClient) {
@@ -361,6 +382,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (msg.type === "AuthError") {
           set({ authLoading: false, authError: msg.message });
         }
+      });
+
+      gameSocket.on("ForgotPasswordSent", () => {
+        set({ authLoading: false, forgotPasswordSuccess: true, authError: null });
+      });
+
+      gameSocket.on("ResetPasswordSuccess", () => {
+        set({ authLoading: false, resetPasswordSuccess: true, authError: null });
       });
 
       gameSocket.on("RoomCreated", (msg) => {

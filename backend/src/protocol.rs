@@ -63,6 +63,16 @@ pub enum ClientMessage {
     SpectateRoom {
         room_id: String,
     },
+    /// Request a password reset email
+    ForgotPassword {
+        email: String,
+    },
+    /// Reset password using a received token
+    ResetPassword {
+        email: String,
+        token: String,
+        new_password: String,
+    },
 }
 
 /// A single tile placement.
@@ -153,6 +163,10 @@ pub enum ServerMessage {
     AuthError {
         message: String,
     },
+    /// Forgot password email sent notification
+    ForgotPasswordSent,
+    /// Reset password success notification
+    ResetPasswordSuccess,
     /// Chat message relayed
     Chat {
         player_id: String,

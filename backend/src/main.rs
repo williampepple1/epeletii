@@ -8,6 +8,7 @@
 mod auth;
 mod board;
 mod dictionary;
+mod email;
 mod game;
 mod persistence;
 mod protocol;
@@ -172,6 +173,32 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                             email: user.email,
                             display_name: user.display_name,
                         }).unwrap());
+                    }
+                    Err(e) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::AuthError {
+                            message: e,
+                        }).unwrap());
+                    }
+                }
+            }
+
+            ClientMessage::ForgotPassword { email } => {
+                match state.auth.request_password_reset(&email).await {
+                    Ok(_) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::ForgotPasswordSent).unwrap());
+                    }
+                    Err(e) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::AuthError {
+                            message: e,
+                        }).unwrap());
+                    }
+                }
+            }
+
+            ClientMessage::ResetPassword { email, token, new_password } => {
+                match state.auth.reset_password(&email, &token, &new_password).await {
+                    Ok(_) => {
+                        let _ = tx.send(serde_json::to_string(&ServerMessage::ResetPasswordSuccess).unwrap());
                     }
                     Err(e) => {
                         let _ = tx.send(serde_json::to_string(&ServerMessage::AuthError {
@@ -351,8 +378,8 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
 
                         match room.game.place_tiles(&tuples) {
                             Ok((words, score)) => {
-                                // If the play used 7 tiles, broadcast a BINGO chat message
-                                if tuples.len() == 7 {
+                                // If the play used 10 tiles, broadcast a BINGO chat message
+                                if tuples.len() == 10 {
                                     let player_name = room
                                         .game
                                         .players
@@ -363,7 +390,7 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     room.broadcast(&ServerMessage::Chat {
                                         player_id: "system".to_string(),
                                         player_name: "System".to_string(),
-                                        message: format!("🎉 BINGO! {} played all 7 tiles and gets a +50 point bonus!", player_name),
+                                        message: format!("🎉 BINGO! {} played all 10 tiles and gets a +50 point bonus!", player_name),
                                     });
                                 }
                                 room.broadcast(&ServerMessage::MoveMade {

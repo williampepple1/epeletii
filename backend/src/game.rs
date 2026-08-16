@@ -83,13 +83,13 @@ impl Game {
         self.tile_bag.split_off(self.tile_bag.len() - available)
     }
 
-    /// Shuffle and deal initial tiles to all players (7 each).
+    /// Shuffle and deal initial tiles to all players (10 each).
     pub fn deal_tiles(&mut self) {
         let mut rng = thread_rng();
         self.tile_bag.shuffle(&mut rng);
         let player_count = self.players.len();
         for i in 0..player_count {
-            let drawn = self.draw_tiles(7);
+            let drawn = self.draw_tiles(10);
             self.players[i].rack = drawn;
         }
     }
@@ -259,7 +259,7 @@ impl Game {
 
         // Add score to player
         let mut final_score = score;
-        if placements.len() == 7 {
+        if placements.len() == 10 {
             final_score += 50;
         }
         self.players[player_idx].score += final_score;
@@ -616,8 +616,8 @@ impl Game {
 
     /// Exchange tiles from current player's rack.
     pub fn exchange_tiles(&mut self, letters: &[String]) -> Result<(), String> {
-        if self.tile_bag.len() < 7 {
-            return Err("Cannot exchange tiles when there are fewer than 7 tiles in the bag".to_string());
+        if self.tile_bag.len() < 10 {
+            return Err("Cannot exchange tiles when there are fewer than 10 tiles in the bag".to_string());
         }
         let player_idx = self.current_player_index();
 
@@ -710,9 +710,9 @@ mod tests {
     fn test_draw_tiles() {
         let mut game = make_game();
         let initial_count = game.tile_bag.len();
-        let drawn = game.draw_tiles(7);
-        assert_eq!(drawn.len(), 7);
-        assert_eq!(game.tile_bag.len(), initial_count - 7);
+        let drawn = game.draw_tiles(10);
+        assert_eq!(drawn.len(), 10);
+        assert_eq!(game.tile_bag.len(), initial_count - 10);
     }
 
     #[test]
@@ -721,8 +721,8 @@ mod tests {
         game.add_player("p1".into(), "Alice".into());
         game.add_player("p2".into(), "Bob".into());
         game.deal_tiles();
-        assert_eq!(game.players[0].rack.len(), 7);
-        assert_eq!(game.players[1].rack.len(), 7);
+        assert_eq!(game.players[0].rack.len(), 10);
+        assert_eq!(game.players[1].rack.len(), 10);
     }
 
     #[test]

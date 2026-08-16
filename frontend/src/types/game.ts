@@ -37,7 +37,9 @@ export type ClientMessage =
   | { type: "RejoinRoom"; room_id: string; player_id: string }
   | { type: "GetLeaderboard" }
   | { type: "GetActiveRooms" }
-  | { type: "SpectateRoom"; room_id: string };
+  | { type: "SpectateRoom"; room_id: string }
+  | { type: "ForgotPassword"; email: string }
+  | { type: "ResetPassword"; email: string; token: string; new_password: string };
 
 // Server -> Client messages
 export type ServerMessage =
@@ -60,7 +62,9 @@ export type ServerMessage =
   | { type: "WordDefinition"; word: string; definitions: WordDetail[] }
   | { type: "RoomState"; room_id: string; player_id?: string; players: PlayerInfo[]; board: BoardSquare[][]; scores: number[]; current_turn: number; tiles_remaining: number; game_started: boolean; game_over: boolean; winner: string | null }
   | { type: "Leaderboard"; entries: LeaderboardEntry[] }
-  | { type: "ActiveRooms"; rooms: ActiveRoomInfo[] };
+  | { type: "ActiveRooms"; rooms: ActiveRoomInfo[] }
+  | { type: "ForgotPasswordSent" }
+  | { type: "ResetPasswordSuccess" };
 
 export interface ActiveRoomInfo {
   id: string;
