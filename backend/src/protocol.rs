@@ -21,6 +21,8 @@ pub enum ClientMessage {
     CreateRoom {
         player_name: String,
         token: Option<String>,
+        #[serde(default)]
+        bot_level: Option<String>,
     },
     /// Join an existing game room
     JoinRoom {
@@ -224,6 +226,10 @@ pub struct PlayerInfo {
     pub name: String,
     pub score: u32,
     pub tile_count: usize,
+    #[serde(default)]
+    pub is_bot: bool,
+    #[serde(default)]
+    pub bot_level: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,7 +10,7 @@ use crate::protocol::WordDetail;
 /// Thread-safe word dictionary for validation.
 #[derive(Debug, Clone)]
 pub struct Dictionary {
-    words: Arc<HashSet<String>>,
+    pub words: Arc<HashSet<String>>,
     word_map: Arc<HashMap<String, Vec<WordDetail>>>,
 }
 

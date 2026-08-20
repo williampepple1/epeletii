@@ -14,12 +14,14 @@ mod persistence;
 mod protocol;
 mod room;
 mod tiles;
+mod bot;
 
 use crate::auth::AuthService;
 use crate::dictionary::Dictionary;
 use crate::persistence::{GameStore, snapshot_to_game};
 use crate::protocol::{ClientMessage, ServerMessage};
 use crate::room::RoomManager;
+use rand::seq::SliceRandom;
 
 use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
@@ -208,7 +210,7 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                 }
             }
 
-            ClientMessage::CreateRoom { player_name, token } => {
+            ClientMessage::CreateRoom { player_name, token, bot_level } => {
                 let mut rooms = state.rooms.lock().await;
                 let room = rooms.create_room(
                     format!("{}'s Game", player_name),
@@ -221,17 +223,74 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                     }
                 }
                 log::info!("Room {} created by {} (player {}) [from {}]", room.id, player_name, new_id, peer);
-                room.game.add_player(new_id.clone(), player_name);
+                room.game.add_player(new_id.clone(), player_name.clone());
                 room.register_sender(&new_id, tx.clone());
 
-                room.send_to(
-                    &new_id,
-                    &ServerMessage::RoomCreated {
-                        room_id: room.id.clone(),
-                        player_id: new_id.clone(),
+                if let Some(level) = bot_level {
+                    let bot_id = format!("bot_{}", &uuid::Uuid::new_v4().to_string()[..8]);
+                    let bot_name = level.clone();
+                    room.game.add_bot_player(bot_id.clone(), bot_name, level.clone());
+                    
+                    // Mark human player and bot as ready
+                    room.game.players[0].ready = true;
+                    // Start game! Randomize who goes first
+                    let first_idx = if rand::random::<bool>() { 0 } else { 1 };
+                    let _ = room.game.start(first_idx);
+                    
+                    room.send_to(
+                        &new_id,
+                        &ServerMessage::RoomCreated {
+                            room_id: room.id.clone(),
+                            player_id: new_id.clone(),
+                            players: room.player_info_list(),
+                        },
+                    );
+
+                    room.broadcast(&ServerMessage::GameStarted {
+                        board: room.board_squares(),
                         players: room.player_info_list(),
-                    },
-                );
+                        current_turn: room.game.current_player_index() as u8,
+                    });
+
+                    // Send initial tiles to human
+                    let tiles: Vec<String> = room.game.players[0].rack.iter().map(|t| t.letter.clone()).collect();
+                    room.send_to(&new_id, &ServerMessage::YourTiles { tiles });
+
+                    // Broadcast greeting chat from bot!
+                    if let Some(profile) = bot::get_bot_profiles().iter().find(|p| p.name == level) {
+                        let greeting = if !profile.greetings.is_empty() {
+                            let idx = rand::random::<usize>() % profile.greetings.len();
+                            profile.greetings[idx]
+                        } else {
+                            "Hello!"
+                        };
+                        room.broadcast(&ServerMessage::Chat {
+                            player_id: bot_id.clone(),
+                            player_name: profile.name.to_string(),
+                            message: greeting.to_string(),
+                        });
+                    }
+
+                    // Trigger bot turn if it is the bot's turn first
+                    if first_idx == 1 {
+                        let state_clone = state.clone();
+                        let rid_clone = room.id.clone();
+                        tokio::spawn(async move {
+                            trigger_bot_turn_if_needed(state_clone, rid_clone).await;
+                        });
+                    } else {
+                        room.send_to(&new_id, &ServerMessage::YourTurn);
+                    }
+                } else {
+                    room.send_to(
+                        &new_id,
+                        &ServerMessage::RoomCreated {
+                            room_id: room.id.clone(),
+                            player_id: new_id.clone(),
+                            players: room.player_info_list(),
+                        },
+                    );
+                }
 
                 my_player_id = Some(new_id);
                 my_room_id = Some(room.id.clone());
@@ -433,20 +492,30 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                         current_turn: room.game.current_player_index() as u8,
                                         tiles_remaining: room.game.tiles_remaining(),
                                     });
+                                    
                                     let next = room.game.current_player_index();
-                                    let ntiles: Vec<String> = room.game.players[next]
-                                        .rack
-                                        .iter()
-                                        .map(|t| t.letter.clone())
-                                        .collect();
-                                    room.send_to(
-                                        &room.game.players[next].id,
-                                        &ServerMessage::YourTiles { tiles: ntiles },
-                                    );
-                                    room.send_to(
-                                        &room.game.players[next].id,
-                                        &ServerMessage::YourTurn,
-                                    );
+                                    let next_player = &room.game.players[next];
+                                    if next_player.is_bot {
+                                        let state_clone = state.clone();
+                                        let rid_clone = rid.clone();
+                                        tokio::spawn(async move {
+                                            trigger_bot_turn_if_needed(state_clone, rid_clone).await;
+                                        });
+                                    } else {
+                                        let ntiles: Vec<String> = next_player
+                                            .rack
+                                            .iter()
+                                            .map(|t| t.letter.clone())
+                                            .collect();
+                                        room.send_to(
+                                            &next_player.id,
+                                            &ServerMessage::YourTiles { tiles: ntiles },
+                                        );
+                                        room.send_to(
+                                            &next_player.id,
+                                            &ServerMessage::YourTurn,
+                                        );
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -461,7 +530,7 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                 room.send_to(pid, &ServerMessage::Error {
                                     message: format!("Invalid move: {}", e),
                                 });
-
+ 
                                 // Advance turn to next player
                                 room.game.next_turn();
                                 let scores: Vec<u32> =
@@ -473,20 +542,30 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                     current_turn: room.game.current_player_index() as u8,
                                     tiles_remaining: room.game.tiles_remaining(),
                                 });
+                                
                                 let next = room.game.current_player_index();
-                                let ntiles: Vec<String> = room.game.players[next]
-                                    .rack
-                                    .iter()
-                                    .map(|t| t.letter.clone())
-                                    .collect();
-                                room.send_to(
-                                    &room.game.players[next].id,
-                                    &ServerMessage::YourTiles { tiles: ntiles },
-                                );
-                                room.send_to(
-                                    &room.game.players[next].id,
-                                    &ServerMessage::YourTurn,
-                                );
+                                let next_player = &room.game.players[next];
+                                if next_player.is_bot {
+                                    let state_clone = state.clone();
+                                    let rid_clone = rid.clone();
+                                    tokio::spawn(async move {
+                                        trigger_bot_turn_if_needed(state_clone, rid_clone).await;
+                                    });
+                                } else {
+                                    let ntiles: Vec<String> = next_player
+                                        .rack
+                                        .iter()
+                                        .map(|t| t.letter.clone())
+                                        .collect();
+                                    room.send_to(
+                                        &next_player.id,
+                                        &ServerMessage::YourTiles { tiles: ntiles },
+                                    );
+                                    room.send_to(
+                                        &next_player.id,
+                                        &ServerMessage::YourTurn,
+                                    );
+                                }
                             }
                         }
                     }
@@ -533,19 +612,28 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                             // Persist after pass
                             state.game_store.save_game(rid, &room.game).await;
                             let next = room.game.current_player_index();
-                            let ntiles: Vec<String> = room.game.players[next]
-                                .rack
-                                .iter()
-                                .map(|t| t.letter.clone())
-                                .collect();
-                            room.send_to(
-                                &room.game.players[next].id,
-                                &ServerMessage::YourTiles { tiles: ntiles },
-                            );
-                            room.send_to(
-                                &room.game.players[next].id,
-                                &ServerMessage::YourTurn,
-                            );
+                            let next_player = &room.game.players[next];
+                            if next_player.is_bot {
+                                let state_clone = state.clone();
+                                let rid_clone = rid.clone();
+                                tokio::spawn(async move {
+                                    trigger_bot_turn_if_needed(state_clone, rid_clone).await;
+                                });
+                            } else {
+                                let ntiles: Vec<String> = next_player
+                                    .rack
+                                    .iter()
+                                    .map(|t| t.letter.clone())
+                                    .collect();
+                                room.send_to(
+                                    &next_player.id,
+                                    &ServerMessage::YourTiles { tiles: ntiles },
+                                );
+                                room.send_to(
+                                    &next_player.id,
+                                    &ServerMessage::YourTurn,
+                                );
+                            }
                         }
                     }
                 }
@@ -592,19 +680,28 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
                                 });
 
                                 let next = room.game.current_player_index();
-                                let ntiles: Vec<String> = room.game.players[next]
-                                    .rack
-                                    .iter()
-                                    .map(|t| t.letter.clone())
-                                    .collect();
-                                room.send_to(
-                                    &room.game.players[next].id,
-                                    &ServerMessage::YourTiles { tiles: ntiles },
-                                );
-                                room.send_to(
-                                    &room.game.players[next].id,
-                                    &ServerMessage::YourTurn,
-                                );
+                                let next_player = &room.game.players[next];
+                                if next_player.is_bot {
+                                    let state_clone = state.clone();
+                                    let rid_clone = rid.clone();
+                                    tokio::spawn(async move {
+                                        trigger_bot_turn_if_needed(state_clone, rid_clone).await;
+                                    });
+                                } else {
+                                    let ntiles: Vec<String> = next_player
+                                        .rack
+                                        .iter()
+                                        .map(|t| t.letter.clone())
+                                        .collect();
+                                    room.send_to(
+                                        &next_player.id,
+                                        &ServerMessage::YourTiles { tiles: ntiles },
+                                    );
+                                    room.send_to(
+                                        &next_player.id,
+                                        &ServerMessage::YourTurn,
+                                    );
+                                }
                             }
                             Err(e) => {
                                 room.send_to(pid, &ServerMessage::Error {
@@ -874,4 +971,263 @@ async fn handle_connection(stream: TcpStream, peer: SocketAddr, state: Arc<AppSt
     }
 
     log::info!("Client disconnected: {}", peer);
+}
+
+fn trigger_bot_turn_if_needed(state: Arc<AppState>, room_id: String) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    Box::pin(async move {
+        // 1. Lock rooms and check if the current turn belongs to a bot.
+        let check_res = {
+            let mut rooms = state.rooms.lock().await;
+            let res = if let Some(room) = rooms.get_room_mut(&room_id) {
+                if room.game.phase == crate::game::GamePhase::Playing {
+                    let idx = room.game.current_player_index();
+                    let player = &room.game.players[idx];
+                    if player.is_bot {
+                        Some((idx, player.bot_level.clone().unwrap_or_default(), player.id.clone(), player.name.clone()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            drop(rooms);
+            res
+        };
+
+        let (bot_idx, bot_level, bot_id, bot_name) = match check_res {
+            Some(val) => val,
+            None => return,
+        };
+
+        log::info!("Bot turn triggered for bot index {} in room {}", bot_idx, room_id);
+
+        // 2. Clone game state to calculate move outside the Mutex lock
+        let game_clone = {
+            let rooms = state.rooms.lock().await;
+            let res = rooms.get_room(&room_id).map(|r| r.game.clone());
+            drop(rooms);
+            res
+        };
+
+        let game_clone = match game_clone {
+            Some(g) => g,
+            None => return,
+        };
+
+        // Calculate bot move action
+        let bot_action = bot::make_bot_move(&game_clone, bot_idx, &bot_level);
+
+        // Sleep a tiny bit to make the bot feel human
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+
+        // 3. Lock rooms again to apply the calculated move, perform broadcasts, and get next steps.
+        enum PostMoveAction {
+            SaveGame { game: crate::game::Game, trigger_next_bot: bool },
+            DeleteGameAndEnd,
+            Nothing,
+        }
+
+        let action = {
+            let mut rooms = state.rooms.lock().await;
+            let res = if let Some(room) = rooms.get_room_mut(&room_id) {
+                // Double check that it is still the same bot's turn
+                let idx = room.game.current_player_index();
+                if room.game.players[idx].id != bot_id {
+                    PostMoveAction::Nothing
+                } else {
+                    match bot_action {
+                        bot::BotMoveAction::PlaceTiles { placements } => {
+                            let tuples: Vec<(usize, usize, String)> = placements
+                                .iter()
+                                .map(|p| (p.row, p.col, p.letter.clone()))
+                                .collect();
+
+                            match room.game.place_tiles(&tuples) {
+                                Ok((words, score)) => {
+                                    // Broadcast bingo if they played 10 tiles
+                                    if tuples.len() == 10 {
+                                        room.broadcast(&ServerMessage::Chat {
+                                            player_id: "system".to_string(),
+                                            player_name: "System".to_string(),
+                                            message: format!("🎉 BINGO! {} played all 10 tiles and gets a +50 point bonus!", bot_name),
+                                        });
+                                    }
+                                    
+                                    room.broadcast(&ServerMessage::MoveMade {
+                                        player_id: bot_id.clone(),
+                                        placements: placements.clone(),
+                                        score,
+                                        words_formed: words.clone(),
+                                    });
+
+                                    // Bot chat message for high score / low score
+                                    if let Some(profile) = bot::get_bot_profiles().iter().find(|p| p.name == bot_level) {
+                                        let phrase = if score >= 30 {
+                                            if !profile.high_score_phrases.is_empty() {
+                                                let idx = rand::random::<usize>() % profile.high_score_phrases.len();
+                                                profile.high_score_phrases[idx]
+                                            } else {
+                                                "Nice!"
+                                            }
+                                        } else {
+                                            if !profile.low_score_phrases.is_empty() {
+                                                let idx = rand::random::<usize>() % profile.low_score_phrases.len();
+                                                profile.low_score_phrases[idx]
+                                            } else {
+                                                "Simple play."
+                                            }
+                                        };
+                                        room.broadcast(&ServerMessage::Chat {
+                                            player_id: bot_id.clone(),
+                                            player_name: bot_name.clone(),
+                                            message: phrase.to_string(),
+                                        });
+                                    }
+
+                                    if room.game.check_game_end() {
+                                        let winner = room.game.get_winner();
+                                        let scores: Vec<u32> = room.game.players.iter().map(|p| p.score).collect();
+                                        
+                                        room.broadcast(&ServerMessage::GameOver {
+                                            winner: winner.clone(),
+                                            final_scores: scores,
+                                            reason: "Bot used all tiles / Game ended".to_string(),
+                                        });
+                                        PostMoveAction::DeleteGameAndEnd
+                                    } else {
+                                        room.game.next_turn();
+                                        
+                                        let scores: Vec<u32> = room.game.players.iter().map(|p| p.score).collect();
+                                        let board = room.board_squares();
+                                        room.broadcast(&ServerMessage::BoardUpdate {
+                                            board,
+                                            scores,
+                                            current_turn: room.game.current_player_index() as u8,
+                                            tiles_remaining: room.game.tiles_remaining(),
+                                        });
+
+                                        // Send turn notification to next player
+                                        let next = room.game.current_player_index();
+                                        let next_player = &room.game.players[next];
+                                        let is_next_bot = next_player.is_bot;
+                                        if !is_next_bot {
+                                            let ntiles: Vec<String> = next_player.rack.iter().map(|t| t.letter.clone()).collect();
+                                            room.send_to(&next_player.id, &ServerMessage::YourTiles { tiles: ntiles });
+                                            room.send_to(&next_player.id, &ServerMessage::YourTurn);
+                                        }
+                                        
+                                        PostMoveAction::SaveGame {
+                                            game: room.game.clone(),
+                                            trigger_next_bot: is_next_bot,
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("Bot placement failed internally: {}. Falling back to pass.", e);
+                                    room.game.pass_turn();
+                                    room.broadcast(&ServerMessage::PlayerPassed { player_id: bot_id.clone() });
+                                    advance_turn_after_pass_or_exchange_sync(room);
+                                    PostMoveAction::SaveGame {
+                                        game: room.game.clone(),
+                                        trigger_next_bot: room.game.players[room.game.current_player_index()].is_bot,
+                                    }
+                                }
+                            }
+                        }
+                        bot::BotMoveAction::ExchangeTiles { letters } => {
+                            let count = letters.len();
+                            let mut success = false;
+                            if let Ok(_) = room.game.exchange_tiles(&letters) {
+                                success = true;
+                            }
+
+                            if success {
+                                room.broadcast(&ServerMessage::TilesExchanged {
+                                    player_id: bot_id.clone(),
+                                    count,
+                                });
+                                room.game.next_turn();
+                            } else {
+                                room.game.pass_turn();
+                                room.broadcast(&ServerMessage::PlayerPassed { player_id: bot_id.clone() });
+                            }
+                            
+                            advance_turn_after_pass_or_exchange_sync(room);
+                            PostMoveAction::SaveGame {
+                                game: room.game.clone(),
+                                trigger_next_bot: room.game.players[room.game.current_player_index()].is_bot,
+                            }
+                        }
+                        bot::BotMoveAction::PassTurn => {
+                            room.broadcast(&ServerMessage::PlayerPassed { player_id: bot_id.clone() });
+                            room.game.pass_turn();
+                            
+                            if matches!(room.game.phase, crate::game::GamePhase::Finished) {
+                                let winner = room.game.get_winner();
+                                let scores: Vec<u32> = room.game.players.iter().map(|p| p.score).collect();
+                                
+                                room.broadcast(&ServerMessage::GameOver {
+                                    winner,
+                                    final_scores: scores,
+                                    reason: "Consecutive passes ended the game".to_string(),
+                                });
+                                PostMoveAction::DeleteGameAndEnd
+                            } else {
+                                room.game.next_turn();
+                                advance_turn_after_pass_or_exchange_sync(room);
+                                PostMoveAction::SaveGame {
+                                    game: room.game.clone(),
+                                    trigger_next_bot: room.game.players[room.game.current_player_index()].is_bot,
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                PostMoveAction::Nothing
+            };
+            drop(rooms);
+            res
+        };
+
+        // 4. Perform async tasks outside the lock
+        match action {
+            PostMoveAction::SaveGame { game, trigger_next_bot } => {
+                state.game_store.save_game(&room_id, &game).await;
+                if trigger_next_bot {
+                    let state_clone = state.clone();
+                    let rid_clone = room_id.clone();
+                    tokio::spawn(async move {
+                        trigger_bot_turn_if_needed(state_clone, rid_clone).await;
+                    });
+                }
+            }
+            PostMoveAction::DeleteGameAndEnd => {
+                state.game_store.delete_game(&room_id).await;
+            }
+            PostMoveAction::Nothing => {}
+        }
+    })
+}
+
+fn advance_turn_after_pass_or_exchange_sync(room: &mut crate::room::Room) {
+    let scores: Vec<u32> = room.game.players.iter().map(|p| p.score).collect();
+    let board = room.board_squares();
+    room.broadcast(&ServerMessage::BoardUpdate {
+        board,
+        scores,
+        current_turn: room.game.current_player_index() as u8,
+        tiles_remaining: room.game.tiles_remaining(),
+    });
+
+    let next = room.game.current_player_index();
+    let next_player = &room.game.players[next];
+    if !next_player.is_bot {
+        let ntiles: Vec<String> = next_player.rack.iter().map(|t| t.letter.clone()).collect();
+        room.send_to(&next_player.id, &ServerMessage::YourTiles { tiles: ntiles });
+        room.send_to(&next_player.id, &ServerMessage::YourTurn);
+    }
 }

@@ -52,8 +52,11 @@ export function Scoreboard() {
                 {isCurrent && (
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                 )}
-                <span className="text-stone-800">
+                <span className="text-stone-800 flex items-center gap-1.5">
                   {p.name}
+                  {p.is_bot && (
+                    <span className="px-1 py-0.2 rounded-md bg-stone-200 dark:bg-stone-800 text-[9px] font-bold text-stone-600 dark:text-stone-400">BOT</span>
+                  )}
                   {isMe && " (you)"}
                 </span>
               </div>

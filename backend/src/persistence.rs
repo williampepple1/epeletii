@@ -46,6 +46,10 @@ pub struct PlayerSnapshot {
     pub score: u32,
     pub rack: Vec<TileSnapshot>,
     pub ready: bool,
+    #[serde(default)]
+    pub is_bot: bool,
+    #[serde(default)]
+    pub bot_level: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,6 +164,8 @@ pub fn game_to_snapshot(room_id: &str, game: &Game) -> GameSnapshot {
             score: p.score,
             rack: p.rack.iter().map(|t| TileSnapshot { letter: t.letter.clone(), value: t.value }).collect(),
             ready: p.ready,
+            is_bot: p.is_bot,
+            bot_level: p.bot_level.clone(),
         })
         .collect();
 
@@ -225,6 +231,8 @@ pub fn snapshot_to_game(snapshot: &GameSnapshot, dictionary: Dictionary) -> Game
             score: p.score,
             rack: p.rack.iter().map(|t| Tile { letter: t.letter.clone(), value: t.value }).collect(),
             ready: p.ready,
+            is_bot: p.is_bot,
+            bot_level: p.bot_level.clone(),
         })
         .collect();
 

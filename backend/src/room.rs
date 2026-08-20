@@ -83,6 +83,8 @@ impl Room {
                 name: p.name.clone(),
                 score: p.score,
                 tile_count: p.rack.len(),
+                is_bot: p.is_bot,
+                bot_level: p.bot_level.clone(),
             })
             .collect()
     }

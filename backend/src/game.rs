@@ -23,6 +23,10 @@ pub struct Player {
     pub score: u32,
     pub rack: Vec<Tile>,
     pub ready: bool,
+    #[serde(default)]
+    pub is_bot: bool,
+    #[serde(default)]
+    pub bot_level: Option<String>,
 }
 
 /// Current game state.
@@ -71,6 +75,21 @@ impl Game {
             score: 0,
             rack: Vec::new(),
             ready: false,
+            is_bot: false,
+            bot_level: None,
+        });
+    }
+
+    /// Add a bot player to the game.
+    pub fn add_bot_player(&mut self, id: String, name: String, bot_level: String) {
+        self.players.push(Player {
+            id,
+            name,
+            score: 0,
+            rack: Vec::new(),
+            ready: true, // Bots are always ready to start
+            is_bot: true,
+            bot_level: Some(bot_level),
         });
     }
 

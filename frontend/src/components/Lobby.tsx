@@ -3,11 +3,22 @@
 import React, { useState, useEffect } from "react";
 import { useGameStore } from "@/store/gameStore";
 
+const BOT_DESCRIPTIONS = {
+  "Curlew (Okolo)": "Simple, playful, and welcoming Curlew. Represents the natural origins of the land. Plays short 2-3 letter words, misses premium squares.",
+  "Ottam tuwo": "Unpredictable popular masquerade. Central tile placements, complex board overlays, tries unexpected moves to raise the roof.",
+  "King Jaja": "Competitive tactician, rack balancer. Plays high-value consonants on multipliers and blocks high-scoring lanes.",
+  "Queen Kambasa": "Bold and decisive. Prioritizes Double Word and Triple Letter squares to dominate the board.",
+  "Alagbarigha": "Strategic closed board defense. Prioritizes vowel management and blocking opponents' open lines.",
+  "King Perekule I": "Economic tactician. Sophisticated spacing, hunts for 10-letter bingo bonuses (+50 points!).",
+  "Ikuba": "Sacred guardian spirit of the realm. Unbeatable parallel placements, maximum tile efficiency, and track monitoring.",
+};
+
 export function Lobby() {
   const [nameInput, setNameInput] = useState("");
   const [joinId, setJoinId] = useState("");
   const [isReady, setIsReady] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [selectedBot, setSelectedBot] = useState("Curlew (Okolo)");
 
   const handleCopy = () => {
     if (roomId) {
@@ -91,12 +102,65 @@ export function Lobby() {
         <div className="space-y-4">
           <div className="space-y-3">
             <button
-              onClick={createRoom}
-              className="w-full py-3 bg-amber-600 text-white rounded-lg font-semibold
-                         hover:bg-amber-700 transition-colors text-lg"
+              onClick={() => createRoom()}
+              className="w-full py-2.5 bg-amber-600 text-white rounded-lg font-semibold
+                         hover:bg-amber-700 transition-colors text-base"
             >
-              Create New Room
+              👥 Create Multiplayer Room
             </button>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
+              <span className="flex-shrink mx-3 text-[10px] text-stone-400 font-bold uppercase tracking-wider">or</span>
+              <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
+            </div>
+
+            <div className="bg-stone-50 dark:bg-stone-850/30 p-4 rounded-xl border border-stone-200/60 dark:border-stone-800/80 space-y-3 text-left">
+              <h3 className="text-xs font-black text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-1">
+                🤖 Play with a Bot (Single Player)
+              </h3>
+              
+              <div>
+                <label className="block text-[9px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-1">
+                  Choose Opponent
+                </label>
+                <select
+                  value={selectedBot}
+                  onChange={(e) => setSelectedBot(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-750 rounded-lg text-sm text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <optgroup label="Novice / Beginner (Rating: 400 - 800)">
+                    <option value="Curlew (Okolo)">Curlew (Okolo) - Novice</option>
+                    <option value="Ottam tuwo">Ottam tuwo - Masquerade</option>
+                  </optgroup>
+                  <optgroup label="Intermediate (Rating: 900 - 1400)">
+                    <option value="King Jaja">King Jaja - Tactical</option>
+                    <option value="Queen Kambasa">Queen Kambasa - Aggressive</option>
+                  </optgroup>
+                  <optgroup label="Advanced / Expert (Rating: 1500 - 1900)">
+                    <option value="Alagbarigha">Alagbarigha - Defensive</option>
+                    <option value="King Perekule I">King Perekule I - Tactician</option>
+                  </optgroup>
+                  <optgroup label="Grandmaster (Rating: 2000+)">
+                    <option value="Ikuba">Ikuba - Guardian Spirit</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Bot Profile Description */}
+              <div className="p-2.5 bg-white dark:bg-stone-900/50 rounded-lg border border-stone-200/40 dark:border-stone-800/40">
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed italic">
+                  {BOT_DESCRIPTIONS[selectedBot as keyof typeof BOT_DESCRIPTIONS]}
+                </p>
+              </div>
+
+              <button
+                onClick={() => createRoom(selectedBot)}
+                className="w-full py-2 bg-stone-700 hover:bg-stone-800 dark:bg-stone-800 dark:hover:bg-stone-755 text-white font-bold rounded-lg text-sm transition-colors shadow-xs"
+              >
+                🎮 Start Single Player Game
+              </button>
+            </div>
 
             <div className="flex gap-2">
               <input
@@ -205,10 +269,15 @@ export function Lobby() {
               {players.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center gap-2 px-3 py-2 bg-stone-50 rounded-lg"
+                  className="flex items-center gap-2 px-3 py-2 bg-stone-50 dark:bg-stone-850/50 rounded-lg border border-stone-200/40 dark:border-stone-800/40"
                 >
                   <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-stone-800">{p.name}</span>
+                  <span className="text-stone-800 dark:text-stone-200 flex items-center gap-1.5 font-semibold">
+                    {p.name}
+                    {p.is_bot && (
+                      <span className="px-1 py-0.2 rounded-md bg-stone-200 dark:bg-stone-850 text-[9px] font-bold text-stone-600 dark:text-stone-400">BOT</span>
+                    )}
+                  </span>
                   {p.id === useGameStore.getState().playerId && (
                     <span className="text-xs text-stone-400">(you)</span>
                   )}

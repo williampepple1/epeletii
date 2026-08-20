@@ -11,6 +11,8 @@ export interface PlayerInfo {
   name: string;
   score: number;
   tile_count: number;
+  is_bot?: boolean;
+  bot_level?: string | null;
 }
 
 export interface BoardSquare {
@@ -25,7 +27,7 @@ export interface BoardSquare {
 export type ClientMessage =
   | { type: "SignUp"; email: string; password: string; display_name: string }
   | { type: "SignIn"; email: string; password: string }
-  | { type: "CreateRoom"; player_name: string; token?: string }
+  | { type: "CreateRoom"; player_name: string; token?: string; bot_level?: string }
   | { type: "JoinRoom"; room_id: string; player_name: string; token?: string }
   | { type: "Ready" }
   | { type: "PlaceTiles"; placements: TilePlacement[] }

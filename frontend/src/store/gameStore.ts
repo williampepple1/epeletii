@@ -72,7 +72,7 @@ interface GameState {
   setForgotPasswordSuccess: (success: boolean) => void;
   setResetPasswordSuccess: (success: boolean) => void;
   logOut: () => void;
-  createRoom: () => void;
+  createRoom: (botLevel?: string) => void;
   joinRoom: (roomId: string) => void;
   spectateRoom: (roomId: string) => void;
   ready: () => void;
@@ -188,13 +188,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  createRoom: () => {
+  createRoom: (botLevel) => {
     const { playerName, authToken } = get();
     if (!playerName) return;
     gameSocket.send({
       type: "CreateRoom",
       player_name: playerName,
       token: authToken || undefined,
+      bot_level: botLevel,
     });
   },
 
